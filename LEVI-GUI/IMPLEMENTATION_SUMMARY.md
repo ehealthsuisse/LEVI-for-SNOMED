@@ -146,7 +146,7 @@ LEVI-GUI/
 | Build | Maven | 3.11.0 |
 | Logging | SLF4J + Logback | 2.0.9 / 1.4.14 |
 | JSON | Jackson | 2.16.0 |
-| Database | MySQL Connector | 8.0.33 |
+| Database | MySQL Connector | 9.5.0 |
 | CSV | OpenCSV | 5.9 |
 | Excel | Apache POI | 5.2.5 |
 | Encryption | Java Crypto | Built-in |

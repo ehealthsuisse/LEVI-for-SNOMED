@@ -108,7 +108,7 @@ All major dependencies scanned for known vulnerabilities:
 - JavaFX 21.0.1
 - Jackson 2.16.0
 - Logback 1.4.14
-- MySQL Connector 8.0.33
+- MySQL Connector 9.5.0 (upgraded from 8.0.33)
 - Apache POI 5.2.5
 - OpenCSV 5.9
 
@@ -116,6 +116,14 @@ All major dependencies scanned for known vulnerabilities:
 ✅ **0 vulnerabilities found**
 
 All dependencies are up-to-date and secure.
+
+### Security Updates Applied
+**MySQL Connector Vulnerability Fix**:
+- **Previous version**: 8.0.33 (vulnerable to takeover vulnerability)
+- **Updated version**: 9.5.0 (secure, patched)
+- **CVE**: MySQL Connectors takeover vulnerability affecting versions < 8.2.0 and <= 8.0.33
+- **Action taken**: Upgraded to 9.5.0 (well above patched version 8.2.0)
+- **Verification**: Re-scanned, 0 vulnerabilities found
 
 ## CodeQL Security Analysis
 
