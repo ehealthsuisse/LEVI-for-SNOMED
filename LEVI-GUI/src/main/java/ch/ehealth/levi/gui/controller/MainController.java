@@ -290,6 +290,7 @@ public class MainController {
         }
     }
     
+    @FXML
     private void saveConfiguration() {
         updateConfigFromUI();
         
@@ -314,6 +315,7 @@ public class MainController {
         }
     }
     
+    @FXML
     private void loadConfiguration() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Load Configuration");
@@ -336,6 +338,7 @@ public class MainController {
         }
     }
     
+    @FXML
     private void restoreDefaults() {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Restore Defaults");

@@ -66,6 +66,15 @@ public class I18nUtil {
     }
     
     /**
+     * Gets the current resource bundle
+     * 
+     * @return current resource bundle
+     */
+    public static ResourceBundle getResourceBundle() {
+        return resourceBundle;
+    }
+    
+    /**
      * Sets locale by language code
      * 
      * @param languageCode language code (de, en, fr, it)

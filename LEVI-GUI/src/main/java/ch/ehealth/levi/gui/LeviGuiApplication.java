@@ -25,6 +25,7 @@ public class LeviGuiApplication extends Application {
             // Load FXML
             FXMLLoader loader = new FXMLLoader();
             loader.setLocation(getClass().getResource("/fxml/MainView.fxml"));
+            loader.setResources(I18nUtil.getResourceBundle());
             
             // Set controller
             MainController controller = new MainController();
