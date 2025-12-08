@@ -34,7 +34,9 @@ levi-config.json
 Thumbs.db
 
 # Build artifacts
-*.jar
+# Note: We exclude target/*.jar from git but keep the built JAR for releases
+target/*.jar
+!target/levi-gui-*.jar
 *.war
 *.ear
 *.class

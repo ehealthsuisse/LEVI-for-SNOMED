@@ -215,10 +215,16 @@ A modern JavaFX-based desktop GUI is now available in the `LEVI-GUI` directory! 
 ```bash
 cd LEVI-GUI
 mvn clean package
-java -jar target/levi-gui-1.0.0.jar
 ```
 
-For more details, see [LEVI-GUI/README-GUI.md](LEVI-GUI/README-GUI.md)
+Then **double-click** the launcher for your OS:
+- Windows: `launch-levi-gui.bat`
+- Linux: `launch-levi-gui.sh`
+- macOS: `launch-levi-gui.command`
+
+Or run directly: `java -jar target/levi-gui-1.0.0.jar`
+
+For more details, see [LEVI-GUI/INSTALLATION.md](LEVI-GUI/INSTALLATION.md) and [LEVI-GUI/README-GUI.md](LEVI-GUI/README-GUI.md)
 
 ## Known Issues / Limitations
 

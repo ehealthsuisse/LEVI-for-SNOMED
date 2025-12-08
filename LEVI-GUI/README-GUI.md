@@ -28,6 +28,16 @@ LEVI GUI is a JavaFX-based desktop application that provides a graphical user in
 
 ## Installation
 
+### Quick Start - Double-Click to Launch! 🚀
+
+After building, you can launch LEVI GUI with a **simple double-click**:
+
+- **Windows**: Double-click `launch-levi-gui.bat`
+- **Linux**: Double-click `launch-levi-gui.sh` (or run `./launch-levi-gui.sh`)
+- **macOS**: Double-click `launch-levi-gui.command`
+
+> 📖 For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md)
+
 ### Building from Source
 
 ```bash
@@ -39,17 +49,22 @@ This creates an executable JAR at `target/levi-gui-1.0.0.jar`
 
 ### Running the Application
 
-**Option 1: Executable JAR**
+**Option 1: Double-Click Launcher (Easiest!) ⭐**
+- Windows: `launch-levi-gui.bat`
+- Linux: `launch-levi-gui.sh`
+- macOS: `launch-levi-gui.command`
+
+**Option 2: Direct JAR Execution**
 ```bash
 java -jar target/levi-gui-1.0.0.jar
 ```
 
-**Option 2: Using Maven**
+**Option 3: Using Maven (Development)**
 ```bash
 mvn javafx:run
 ```
 
-### Creating Native Installers
+### Creating Native Installers (Optional)
 
 **For macOS:**
 ```bash
