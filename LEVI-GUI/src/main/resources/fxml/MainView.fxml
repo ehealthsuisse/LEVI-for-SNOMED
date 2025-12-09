@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
+    <top>
+        <!-- Menu Bar -->
+        <VBox>
+            <MenuBar>
+                <Menu text="%menu.file">
+                    <MenuItem text="%menu.file.exit" onAction="#exitApplication"/>
+                </Menu>
+                <Menu text="%menu.config">
+                    <MenuItem text="%menu.config.save" onAction="#saveConfiguration"/>
+                    <MenuItem text="%menu.config.load" onAction="#loadConfiguration"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="%menu.config.restore" onAction="#restoreDefaults"/>
+                </Menu>
+                <Menu text="%menu.help">
+                    <MenuItem text="%menu.help.about" onAction="#showAbout"/>
+                </Menu>
+            </MenuBar>
+            
+            <!-- Header -->
+            <HBox alignment="CENTER" style="-fx-background-color: #2196F3; -fx-padding: 15;">
+                <Label text="LEVI for SNOMED" style="-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;"/>
+            </HBox>
+        </VBox>
+    </top>
+    
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true">
+            <VBox spacing="15" style="-fx-padding: 20;">
+                <!-- Configuration Section -->
+                <TitledPane text="Configuration" expanded="true" collapsible="false">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <!-- Database Configuration -->
+                        <Label text="Database" style="-fx-font-weight: bold;"/>
+                        <GridPane hgap="10" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="120" prefWidth="120"/>
+                                <ColumnConstraints hgrow="ALWAYS"/>
+                                <ColumnConstraints minWidth="100"/>
+                            </columnConstraints>
+                            
+                            <Label text="DB URL:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <TextField fx:id="dbUrlField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <Button fx:id="dbTestButton" text="Test" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                            
+                            <Label text="Username:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="dbUsernameField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            
+                            <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <PasswordField fx:id="dbPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="2"/>
+                        </GridPane>
+                        
+                        <Separator/>
+                        
+                        <!-- Settings -->
+                        <Label text="Settings" style="-fx-font-weight: bold;"/>
+                        <HBox spacing="20">
+                            <Label text="Country Code:"/>
+                            <ComboBox fx:id="countryCodeCombo" prefWidth="100"/>
+                            <CheckBox fx:id="eszettCheckBox" text="Eszett Transform (ß → ss)"/>
+                            <CheckBox fx:id="regexCheckBox" text="Regex Validation"/>
+                        </HBox>
+                        
+                        <Separator/>
+                        
+                        <!-- File Paths -->
+                        <Label text="File Paths" style="-fx-font-weight: bold;"/>
+                        <GridPane hgap="10" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="120" prefWidth="120"/>
+                                <ColumnConstraints hgrow="ALWAYS"/>
+                                <ColumnConstraints minWidth="100"/>
+                            </columnConstraints>
+                            
+                            <Label text="Current File:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <TextField fx:id="currentFileField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <Button fx:id="currentFileBrowseButton" text="Browse..." GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                            
+                            <Label text="Previous File:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="previousFileField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            <Button fx:id="previousFileBrowseButton" text="Browse..." GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                            
+                            <Label text="Output Dir:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <TextField fx:id="outputDirField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                            <Button fx:id="outputDirBrowseButton" text="Browse..." GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+                        </GridPane>
+                        
+                        <Separator/>
+                        
+                        <!-- Config Buttons -->
+                        <HBox spacing="10" alignment="CENTER">
+                            <Button fx:id="saveConfigButton" text="Save Config"/>
+                            <Button fx:id="loadConfigButton" text="Load Config"/>
+                            <Button fx:id="restoreDefaultsButton" text="Restore Defaults"/>
+                        </HBox>
+                    </VBox>
+                </TitledPane>
+                
+                <!-- Jobs Section -->
+                <TitledPane text="Jobs" expanded="true" collapsible="false">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <!-- Job Selection Buttons -->
+                        <GridPane hgap="10" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="33.3"/>
+                                <ColumnConstraints percentWidth="33.3"/>
+                                <ColumnConstraints percentWidth="33.3"/>
+                            </columnConstraints>
+                            
+                            <Button fx:id="overviewButton" text="Translation Overview" 
+                                    maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <Button fx:id="descAddButton" text="New Descriptions" 
+                                    maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <Button fx:id="descInactButton" text="Inactivations" 
+                                    maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                            <Button fx:id="translateDeltaButton" text="Complete Delta" 
+                                    maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <Button fx:id="eszettCheckButton" text="Eszett Check" 
+                                    maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            <Button fx:id="notPublishedButton" text="Unpublished Translations" 
+                                    maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                        </GridPane>
+                        
+                        <Separator/>
+                        
+                        <!-- Job Control -->
+                        <HBox spacing="10" alignment="CENTER">
+                            <Button fx:id="startButton" text="▶ Start" style="-fx-font-weight: bold;"/>
+                            <Button fx:id="cancelButton" text="⏹ Cancel" disable="true"/>
+                        </HBox>
+                        
+                        <!-- Progress -->
+                        <VBox spacing="5">
+                            <ProgressBar fx:id="progressBar" prefWidth="Infinity" progress="0"/>
+                            <Label fx:id="statusLabel" text="Idle"/>
+                            <Label fx:id="runtimeLabel" text=""/>
+                        </VBox>
+                    </VBox>
+                </TitledPane>
+                
+                <!-- Results Section -->
+                <TitledPane text="Results" expanded="true" collapsible="false">
+                    <TabPane fx:id="resultsTabPane" tabClosingPolicy="UNAVAILABLE" prefHeight="300">
+                        <!-- Statistics Tab -->
+                        <Tab text="Statistics">
+                            <ScrollPane fitToWidth="true" fitToHeight="true">
+                                <TextArea fx:id="statisticsArea" editable="false" 
+                                         style="-fx-font-family: 'Courier New'; -fx-font-size: 14px;"
+                                         wrapText="true"/>
+                            </ScrollPane>
+                        </Tab>
+                        
+                        <!-- Log Tab -->
+                        <Tab text="Log">
+                            <VBox spacing="5" style="-fx-padding: 5;">
+                                <HBox spacing="10">
+                                    <Button text="Clear Log" onAction="#clearLog"/>
+                                    <Button text="Save Log" onAction="#saveLog"/>
+                                </HBox>
+                                <ScrollPane fitToWidth="true" fitToHeight="true">
+                                    <TextArea fx:id="logArea" editable="false" 
+                                             style="-fx-font-family: 'Courier New';"
+                                             wrapText="true"/>
+                                </ScrollPane>
+                            </VBox>
+                        </Tab>
+                    </TabPane>
+                </TitledPane>
+            </VBox>
+        </ScrollPane>
+    </center>
+    
+    <bottom>
+        <!-- Status Bar -->
+        <HBox spacing="20" style="-fx-padding: 5; -fx-background-color: #f0f0f0; -fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;">
+            <Label fx:id="statusBarLabel" text="Idle"/>
+            <Separator orientation="VERTICAL"/>
+            <Label text="DB:"/>
+            <Label fx:id="dbStatusLabel" text="Not Connected"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="lastJobLabel" text=""/>
+        </HBox>
+    </bottom>
+</BorderPane>

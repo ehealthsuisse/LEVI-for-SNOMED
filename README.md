@@ -200,9 +200,34 @@ classDiagram
 
 Contributions are welcome. Please fork the repository and submit a pull request. For new features, discuss via an issue first.
 
+## Desktop GUI
+
+A modern JavaFX-based desktop GUI is now available in the `LEVI-GUI` directory! The GUI provides:
+
+- **Intuitive Interface**: Easy-to-use graphical interface for all LEVI operations
+- **Configuration Management**: Visual editor for database settings, file paths, and options
+- **Job Execution**: Run all 6 workflows with progress tracking
+- **Results Display**: View statistics and export results
+- **Multi-language Support**: German, English, French, and Italian
+- **Secure Configuration**: AES-256 encrypted password storage
+
+**Quick Start:**
+```bash
+cd LEVI-GUI
+mvn clean package
+```
+
+Then **double-click** the launcher for your OS:
+- Windows: `launch-levi-gui.bat`
+- Linux: `launch-levi-gui.sh`
+- macOS: `launch-levi-gui.command`
+
+Or run directly: `java -jar target/levi-gui-1.0.0.jar`
+
+For more details, see [LEVI-GUI/INSTALLATION.md](LEVI-GUI/INSTALLATION.md) and [LEVI-GUI/README-GUI.md](LEVI-GUI/README-GUI.md)
+
 ## Known Issues / Limitations
 
-* CLI-only (no GUI)
 * No multithreading for large files
 * Tested against a specific TermMed SNOMED extension setup
 * Language code must be manually entered for some files if missing

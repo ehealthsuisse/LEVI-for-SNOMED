@@ -1,0 +1,211 @@
+/* LEVI GUI Styles */
+
+/* Root styling */
+.root {
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    -fx-font-size: 13px;
+    -fx-background-color: #fafafa;
+}
+
+/* Buttons */
+.button {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-padding: 8 15 8 15;
+    -fx-background-radius: 3;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #1976D2;
+}
+
+.button:pressed {
+    -fx-background-color: #0D47A1;
+}
+
+.button:disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}
+
+/* Text fields */
+.text-field, .password-field {
+    -fx-background-color: white;
+    -fx-border-color: #cccccc;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-padding: 5 10 5 10;
+}
+
+.text-field:focused, .password-field:focused {
+    -fx-border-color: #2196F3;
+    -fx-border-width: 2;
+}
+
+/* ComboBox */
+.combo-box {
+    -fx-background-color: white;
+    -fx-border-color: #cccccc;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+}
+
+.combo-box:focused {
+    -fx-border-color: #2196F3;
+    -fx-border-width: 2;
+}
+
+/* CheckBox */
+.check-box {
+    -fx-text-fill: #333333;
+}
+
+.check-box .box {
+    -fx-background-color: white;
+    -fx-border-color: #cccccc;
+    -fx-border-radius: 3;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: #2196F3;
+}
+
+/* Progress Bar */
+.progress-bar {
+    -fx-background-color: #e0e0e0;
+    -fx-pref-height: 25;
+}
+
+.progress-bar .bar {
+    -fx-background-color: #4CAF50;
+    -fx-background-radius: 3;
+    -fx-background-insets: 2;
+}
+
+/* TitledPane */
+.titled-pane {
+    -fx-background-color: white;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+}
+
+.titled-pane > .title {
+    -fx-background-color: #f5f5f5;
+    -fx-background-radius: 5 5 0 0;
+    -fx-padding: 10;
+}
+
+.titled-pane > .title > .text {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-fill: #333333;
+}
+
+.titled-pane > *.content {
+    -fx-background-color: white;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+/* Tab Pane */
+.tab-pane {
+    -fx-background-color: white;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 5;
+}
+
+.tab {
+    -fx-background-color: #f5f5f5;
+    -fx-border-color: #e0e0e0;
+    -fx-padding: 8 15 8 15;
+}
+
+.tab:selected {
+    -fx-background-color: white;
+    -fx-border-color: #2196F3 #2196F3 white #2196F3;
+    -fx-border-width: 2 2 0 2;
+}
+
+.tab .tab-label {
+    -fx-text-fill: #666666;
+}
+
+.tab:selected .tab-label {
+    -fx-text-fill: #333333;
+    -fx-font-weight: bold;
+}
+
+/* TextArea */
+.text-area {
+    -fx-background-color: white;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+}
+
+.text-area .content {
+    -fx-background-color: white;
+}
+
+/* ScrollPane */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+/* Labels */
+.label {
+    -fx-text-fill: #333333;
+}
+
+/* Separators */
+.separator {
+    -fx-background-color: #e0e0e0;
+}
+
+/* Menu Bar */
+.menu-bar {
+    -fx-background-color: #f5f5f5;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 1 0;
+}
+
+.menu {
+    -fx-text-fill: #333333;
+}
+
+.menu-item {
+    -fx-background-color: white;
+}
+
+.menu-item:focused {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+}
+
+/* Tooltip */
+.tooltip {
+    -fx-background-color: #333333;
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-padding: 5 10 5 10;
+    -fx-background-radius: 3;
+}
+
+/* Error styling */
+.text-field.error, .password-field.error {
+    -fx-border-color: #f44336;
+    -fx-border-width: 2;
+}
+
+/* Success styling */
+.text-field.success, .password-field.success {
+    -fx-border-color: #4CAF50;
+    -fx-border-width: 2;
+}
