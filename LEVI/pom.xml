@@ -8,7 +8,8 @@
   <version>0.0.1-SNAPSHOT</version>
 
   <build>
-    <sourceDirectory>src</sourceDirectory>
+    <sourceDirectory>src/translation</sourceDirectory>
+    <testSourceDirectory>src/test/java</testSourceDirectory>
       <plugins>
 
       <plugin>
@@ -43,6 +44,12 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0</version>
       </plugin>
 
     </plugins>
@@ -108,6 +115,28 @@
     <groupId>org.apache.commons</groupId>
     <artifactId>commons-lang3</artifactId>
     <version>3.13.0</version>
+	</dependency>
+	
+	<!-- Test dependencies -->
+	<dependency>
+	  <groupId>org.junit.jupiter</groupId>
+	  <artifactId>junit-jupiter</artifactId>
+	  <version>5.10.0</version>
+	  <scope>test</scope>
+	</dependency>
+	
+	<dependency>
+	  <groupId>org.mockito</groupId>
+	  <artifactId>mockito-core</artifactId>
+	  <version>5.5.0</version>
+	  <scope>test</scope>
+	</dependency>
+	
+	<dependency>
+	  <groupId>org.mockito</groupId>
+	  <artifactId>mockito-junit-jupiter</artifactId>
+	  <version>5.5.0</version>
+	  <scope>test</scope>
 	</dependency>
 	
   </dependencies>
