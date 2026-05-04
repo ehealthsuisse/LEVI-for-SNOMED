@@ -89,11 +89,12 @@ public class FileReaderUtil {
 					new SimpleOverview(csvReader, resultCollector).process(); //TODO: Implement Termspace CSV processing
 					break;
 				case "Additions.tsv":
+					logger.info("Processing SNOMED International `Additions.tsv` file...");
 					new SiAdditionsCsvProcessor(csvReader, resultCollector).process();
 					break;
 				case "Inactivations.tsv":
-					logger.info("Processing Termspace `Inactivations.tsv` file...");
-					new TermspaceInactivationsCsvProcessor(csvReader, resultCollector).process();
+					logger.info("Processing SNOMED International `Inactivations.tsv` file...");
+					new SiInactivationsCSVProcessor(csvReader, resultCollector).process();
 					break;
 				case ".simpleOverview.tsv":
 					logger.info("Processing `.simpleOverview.tsv` file...");
@@ -105,7 +106,7 @@ public class FileReaderUtil {
 //					break;
  				default:
 					logger.warn("{} Not recognized. Please check the file type.", fileType);
-					break;
+					System.exit(0);
 				}
 
 
