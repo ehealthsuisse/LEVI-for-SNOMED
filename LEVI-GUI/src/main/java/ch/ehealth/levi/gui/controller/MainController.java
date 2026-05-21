@@ -51,7 +51,6 @@ public class MainController {
     @FXML private PasswordField dbPasswordField;
     @FXML private Button dbTestButton;
     
-    @FXML private ComboBox<String> countryCodeCombo;
     @FXML private CheckBox eszettCheckBox;
     @FXML private CheckBox regexCheckBox;
     
@@ -111,9 +110,6 @@ public class MainController {
     public void initialize() {
         logger.info("Initializing MainController");
         
-        // Initialize country code combo box
-        countryCodeCombo.getItems().addAll("CH", "AT", "DE", "FR", "IT");
-        
         // Set up tooltips
         setupTooltips();
         
@@ -141,7 +137,6 @@ public class MainController {
         dbPortField.setTooltip(new Tooltip("MySQL port, default 3306"));
         dbUsernameField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.username")));
         dbPasswordField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.password")));
-        countryCodeCombo.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.country")));
         eszettCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.eszett")));
         regexCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.regex")));
         currentFileField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.current")));
@@ -180,7 +175,6 @@ public class MainController {
         dbPortField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbUsernameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbPasswordField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
-        countryCodeCombo.valueProperty().addListener((obs, old, val) -> updateConfigFromUI());
         eszettCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
         regexCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
         currentFileField.textProperty().addListener((obs, old, val) -> {
@@ -202,7 +196,6 @@ public class MainController {
         dbUsernameField.setText(config.getDatabase().getUsername());
         dbPasswordField.setText(config.getDatabase().getPassword());
         
-        countryCodeCombo.setValue(config.getSettings().getCountryCode());
         eszettCheckBox.setSelected(config.getSettings().isTransformEszett());
         regexCheckBox.setSelected(config.getSettings().isRegexCheck());
         
@@ -223,9 +216,6 @@ public class MainController {
         config.getDatabase().setUsername(dbUsernameField.getText());
         config.getDatabase().setPassword(dbPasswordField.getText());
         
-        if (countryCodeCombo.getValue() != null) {
-            config.getSettings().setCountryCode(countryCodeCombo.getValue());
-        }
         config.getSettings().setTransformEszett(eszettCheckBox.isSelected());
         config.getSettings().setRegexCheck(regexCheckBox.isSelected());
         

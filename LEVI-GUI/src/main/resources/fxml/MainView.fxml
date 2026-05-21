@@ -70,8 +70,6 @@
                         <!-- Settings -->
                         <Label text="Settings" style="-fx-font-weight: bold;"/>
                         <HBox spacing="20">
-                            <Label text="Country Code:"/>
-                            <ComboBox fx:id="countryCodeCombo" prefWidth="100"/>
                             <CheckBox fx:id="eszettCheckBox" text="Eszett Transform (ß → ss)"/>
                             <CheckBox fx:id="regexCheckBox" text="Regex Validation"/>
                         </HBox>
