@@ -751,13 +751,34 @@ public class MainController {
     
     @FXML
     private void showAbout() {
+        int year = java.time.LocalDate.now().getYear();
+
+        Hyperlink link = new Hyperlink("https://github.com/ehealthsuisse/LEVI-for-SNOMED/");
+        link.setOnAction(e -> {
+            try {
+                java.awt.Desktop.getDesktop().browse(
+                    new java.net.URI("https://github.com/ehealthsuisse/LEVI-for-SNOMED/")
+                );
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
+
+        javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(8);
+        content.getChildren().addAll(
+            new javafx.scene.control.Label(
+                "Language and Extension Validation & Import for SNOMED\n\n" +
+                "© " + year + " eHealth Suisse\n\n" +
+                "This application provides a desktop GUI for managing SNOMED CT " +
+                "translation validation and delta generation.\n"
+            ),
+            link
+        );
+
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("About LEVI for SNOMED");
         alert.setHeaderText("LEVI for SNOMED - Version 1.0.0");
-        alert.setContentText("Language and Extension Validation & Import for SNOMED\n\n" +
-                           "© 2025 eHealth Suisse\n\n" +
-                           "This application provides a desktop GUI for managing SNOMED CT " +
-                           "translation validation and delta generation.");
+        alert.getDialogPane().setContent(content);
         alert.showAndWait();
     }
     
