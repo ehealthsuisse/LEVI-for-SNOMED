@@ -4,11 +4,14 @@ import ch.ehealth.levi.gui.model.AppConfig;
 import ch.ehealth.levi.gui.model.JobResult;
 import ch.ehealth.levi.gui.service.ConfigService;
 import ch.ehealth.levi.gui.service.JobService;
+import ch.ehealth.levi.gui.util.GuiInputStream;
+import ch.ehealth.levi.gui.util.GuiLogAppender;
 import ch.ehealth.levi.gui.util.I18nUtil;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
@@ -19,8 +22,11 @@ import translation.check.Conf;
 import translation.check.DbConnection;
 
 import java.io.File;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.time.Duration;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Main controller for the LEVI GUI application
@@ -76,6 +82,11 @@ public class MainController {
     @FXML private TabPane resultsTabPane;
     @FXML private TextArea statisticsArea;
     @FXML private TextArea logArea;
+    @FXML private HBox logInputBox;
+    @FXML private TextField logInputField;
+
+    // Main scroll pane (center of the BorderPane)
+    @FXML private ScrollPane mainScrollPane;
     
     // Status Bar
     @FXML private Label statusBarLabel;
@@ -86,6 +97,8 @@ public class MainController {
     private Task<JobResult> currentTask;
     private String selectedJobType;
     private long jobStartTime;
+    private GuiInputStream guiInputStream;
+    private static final InputStream ORIGINAL_STDIN = System.in;
     
     public MainController() {
         this.configService = new ConfigService();
@@ -112,7 +125,12 @@ public class MainController {
         // Initialize UI state
         updateJobButtonsState();
         updateStatusBar();
-        
+
+        // Wire GUI log appender so LEVI core logs appear in the log area
+        GuiLogAppender.setLogArea(logArea);
+        // Enter key in the input field acts the same as clicking Submit
+        logInputField.setOnAction(e -> submitLogInput());
+
         logger.info("MainController initialized");
     }
     
@@ -412,6 +430,17 @@ public class MainController {
         // Set up task handlers
         setupTaskHandlers(currentTask);
         
+        // Switch to Log tab and log start
+        String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+        logMessage("\n[" + ts + "] ▶ Starting: " + selectedJobType);
+        resultsTabPane.getSelectionModel().select(1);
+        // Defer scroll so the tab selection is applied before we scroll
+        Platform.runLater(() -> mainScrollPane.setVvalue(1.0));
+
+        // Redirect System.in so stdin prompts from LEVI core are handled by the GUI
+        guiInputStream = new GuiInputStream(this::showLogInputPrompt);
+        System.setIn(guiInputStream);
+
         // Start task
         jobStartTime = System.currentTimeMillis();
         Thread thread = new Thread(currentTask);
@@ -424,6 +453,13 @@ public class MainController {
     }
     
     private void setupTaskHandlers(Task<JobResult> task) {
+        // Pipe task status messages to log area in real time
+        task.messageProperty().addListener((obs, oldMsg, newMsg) -> {
+            if (newMsg != null && !newMsg.isEmpty()) {
+                logMessage("  " + newMsg);
+            }
+        });
+        
         // Progress
         progressBar.progressProperty().bind(task.progressProperty());
         statusLabel.textProperty().bind(task.messageProperty());
@@ -432,6 +468,10 @@ public class MainController {
         task.setOnSucceeded(e -> {
             JobResult result = task.getValue();
             currentTask = null;
+            cleanupInputStream();
+            String doneTs = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+            logMessage("[" + doneTs + "] " + (result.isSuccessful() ? "✅ Completed" : "❌ Failed")
+                    + " (" + formatDuration(result.getExecutionTimeMs() / 1000) + ")");
             displayResult(result);
             progressBar.progressProperty().unbind();
             statusLabel.textProperty().unbind();
@@ -445,6 +485,7 @@ public class MainController {
             Throwable ex = task.getException();
             logger.error("Job failed", ex);
             currentTask = null;
+            cleanupInputStream();
             logMessage("ERROR: " + (ex != null ? ex.getMessage() : "unknown error"));
             progressBar.progressProperty().unbind();
             statusLabel.textProperty().unbind();
@@ -456,6 +497,7 @@ public class MainController {
         // Cancelled
         task.setOnCancelled(e -> {
             currentTask = null;
+            cleanupInputStream();
             logMessage("Job cancelled by user");
             progressBar.progressProperty().unbind();
             statusLabel.textProperty().unbind();
@@ -610,6 +652,40 @@ public class MainController {
                                          status));
     }
     
+    private void showLogInputPrompt() {
+        if (logInputBox == null) return; // guard against FXML injection failure
+        logInputBox.setVisible(true);
+        logInputBox.setManaged(true);
+        logInputField.clear();
+        resultsTabPane.getSelectionModel().select(1); // ensure Log tab is visible
+        mainScrollPane.setVvalue(1.0);              // scroll so the input bar is on screen
+        logInputField.requestFocus();
+    }
+
+    private void hideLogInputPrompt() {
+        logInputBox.setVisible(false);
+        logInputBox.setManaged(false);
+    }
+
+    private void cleanupInputStream() {
+        hideLogInputPrompt();
+        System.setIn(ORIGINAL_STDIN);
+        if (guiInputStream != null) {
+            guiInputStream.close();
+            guiInputStream = null;
+        }
+    }
+
+    @FXML
+    private void submitLogInput() {
+        String input = logInputField.getText();
+        logMessage("  > " + input);  // echo to log area
+        hideLogInputPrompt();
+        if (guiInputStream != null) {
+            guiInputStream.provideInput(input);
+        }
+    }
+
     private void logMessage(String message) {
         Platform.runLater(() -> {
             logArea.appendText(message + "\n");

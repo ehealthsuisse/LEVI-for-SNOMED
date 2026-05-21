@@ -32,7 +32,7 @@
     </top>
     
     <center>
-        <ScrollPane fitToWidth="true" fitToHeight="true">
+        <ScrollPane fx:id="mainScrollPane" fitToWidth="true">
             <VBox spacing="15" style="-fx-padding: 20;">
                 <!-- Configuration Section -->
                 <TitledPane text="Configuration" expanded="true" collapsible="false">
@@ -172,6 +172,16 @@
                                              style="-fx-font-family: 'Courier New';"
                                              wrapText="true"/>
                                 </ScrollPane>
+                                <!-- Input prompt – shown only when the job awaits stdin -->
+                                <HBox fx:id="logInputBox" spacing="10" alignment="CENTER_LEFT"
+                                      visible="false" managed="false"
+                                      style="-fx-padding: 8; -fx-background-color: #fff3cd; -fx-border-color: #ffc107; -fx-border-width: 1 0 0 0;">
+                                    <Label text="⌨ Input required:" style="-fx-font-weight: bold;"/>
+                                    <TextField fx:id="logInputField" HBox.hgrow="ALWAYS"
+                                               promptText="Type your answer, then press Enter or Submit"
+                                               onAction="#submitLogInput"/>
+                                    <Button text="Submit" onAction="#submitLogInput"/>
+                                </HBox>
                             </VBox>
                         </Tab>
                     </TabPane>
