@@ -16,12 +16,28 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-REM Check if JAR file exists
+REM Check if JAR file exists; if not, build automatically
 if not exist "%JAR_FILE%" (
-    echo Error: JAR file not found at %JAR_FILE%
-    echo Please build the application first using: mvn clean package
-    pause
-    exit /b 1
+    echo JAR not found. Building application with Maven...
+    
+    where mvn >nul 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo Error: Maven ^(mvn^) is not installed or not in PATH.
+        echo Please install Maven 3.6+ and try again.
+        pause
+        exit /b 1
+    )
+    
+    pushd "%SCRIPT_DIR%"
+    call mvn clean package
+    if %ERRORLEVEL% NEQ 0 (
+        echo Error: Build failed. Please check the output above.
+        popd
+        pause
+        exit /b 1
+    )
+    popd
+    echo Build successful.
 )
 
 REM Launch the application
