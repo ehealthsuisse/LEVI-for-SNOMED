@@ -121,6 +121,11 @@ public class DbConnection {
 				stmt.execute(insertSql.toString());
 			}
 
+			// MySQL does not allow the same TEMPORARY TABLE to be opened more than once
+			// in a single query. Create a copy for the concept sub-join.
+			stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_concept_ids_copy");
+			stmt.execute("CREATE TEMPORARY TABLE temp_concept_ids_copy SELECT * FROM temp_concept_ids");
+
 			String query = """
 			        SELECT
 			            d.id,
@@ -160,7 +165,7 @@ public class DbConnection {
 			            INNER JOIN (
 			                SELECT fc2.id, MAX(fc2.effectiveTime) AS max_time
 			                FROM full_concept fc2
-			                INNER JOIN temp_concept_ids t ON fc2.id = t.conceptId
+			                INNER JOIN temp_concept_ids_copy t ON fc2.id = t.conceptId
 			                GROUP BY fc2.id
 			            ) latest_c
 			              ON fc1.id = latest_c.id
@@ -189,6 +194,7 @@ public class DbConnection {
 			}
 
 			stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_concept_ids");
+			stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_concept_ids_copy");
 		}
 		disconnect();
 	}

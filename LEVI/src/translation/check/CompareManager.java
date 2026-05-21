@@ -10,13 +10,24 @@ public class CompareManager {
 	private final FileReaderUtil reader;
 	private final FileWriterUtil writer;
 	private final Comparator comparator;
-	
+
+	// Counts populated after each run* call
+	private int lastAdditionsCount;
+	private int lastChangesCount;
+	private int lastReactivationsCount;
+	private int lastInactivationsCount;
+
     public CompareManager(Conf conf) {
         this.resultCollector = new ResultCollector();
         this.reader = new FileReaderUtil(resultCollector);
         this.writer = new FileWriterUtil();
         this.comparator = new Comparator(resultCollector, conf);
     }
+
+	public int getLastAdditionsCount()     { return lastAdditionsCount; }
+	public int getLastChangesCount()       { return lastChangesCount; }
+	public int getLastReactivationsCount() { return lastReactivationsCount; }
+	public int getLastInactivationsCount() { return lastInactivationsCount; }
     
 
 	public void runTranslationOverview(String path, String destination)
@@ -28,31 +39,45 @@ public class CompareManager {
 	public void runDeltaDescAdditions(String path, String destination)
 			throws IOException, ClassNotFoundException, SQLException {
 		reader.readFile(path);
-		writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", comparator.generateDescriptionAdditionAndChangesDelta());
+		List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
+		lastAdditionsCount = Math.max(0, additions.size() - 1);
+		writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", additions);
 		if(resultCollector.containsType("TRANSLATION_CHANGES")) {
-			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES"));
+			List<List<String>> changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
+			lastChangesCount = Math.max(0, changes.size() - 1);
+			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", changes);
 		}
 	}
 	
 	public void runDeltaDescInactivations(String path, String destination) throws ClassNotFoundException, IOException, SQLException {
 		reader.readFile(path);
-		writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", comparator.generateDescriptionInactivationDelta());
+		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
+		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
+		writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", inactivations);
 	}
 	
 	public void runGenerateDelta(String path, String destination) throws ClassNotFoundException, IOException, SQLException {
 		reader.readFile(path);
-		
-		writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", comparator.generateDescriptionAdditionAndChangesDelta());
-		
+
+		List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
+		lastAdditionsCount = Math.max(0, additions.size() - 1);
+		writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", additions);
+
 		if(resultCollector.containsType("TRANSLATION_CHANGES")) {
-			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES"));
+			List<List<String>> changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
+			lastChangesCount = Math.max(0, changes.size() - 1);
+			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", changes);
 		}
-		
+
 		if(resultCollector.containsType("TRANSLATION_REACTIVATION")) {
-			writer.writeToFile(destination + "\\DeltaDescReactivation.tsv", comparator.generateDescriptionChangesDelta("TRANSLATION_REACTIVATION"));
+			List<List<String>> reactivations = comparator.generateDescriptionChangesDelta("TRANSLATION_REACTIVATION");
+			lastReactivationsCount = Math.max(0, reactivations.size() - 1);
+			writer.writeToFile(destination + "\\DeltaDescReactivation.tsv", reactivations);
 		}
-		
-		writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", comparator.generateDescriptionInactivationDelta());
+
+		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
+		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
+		writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", inactivations);
 	}
 	
 	public void runCheckEszettInExtension(String destination) throws ClassNotFoundException, IOException, SQLException {
