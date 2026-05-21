@@ -2,6 +2,8 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.*?>
 
@@ -25,7 +27,10 @@
             </MenuBar>
             
             <!-- Header -->
-            <HBox alignment="CENTER" style="-fx-background-color: #2196F3; -fx-padding: 15;">
+            <HBox alignment="CENTER" spacing="12" style="-fx-background-color: #2196F3; -fx-padding: 12;">
+                <ImageView fitHeight="44" fitWidth="44" preserveRatio="true">
+                    <image><Image url="@../icons/android-chrome-192x192.png"/></image>
+                </ImageView>
                 <Label text="LEVI for SNOMED" style="-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;"/>
             </HBox>
         </VBox>
@@ -65,8 +70,6 @@
                         <!-- Settings -->
                         <Label text="Settings" style="-fx-font-weight: bold;"/>
                         <HBox spacing="20">
-                            <Label text="Country Code:"/>
-                            <ComboBox fx:id="countryCodeCombo" prefWidth="100"/>
                             <CheckBox fx:id="eszettCheckBox" text="Eszett Transform (ß → ss)"/>
                             <CheckBox fx:id="regexCheckBox" text="Regex Validation"/>
                         </HBox>

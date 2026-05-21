@@ -56,4 +56,6 @@ fi
 
 # Launch the application
 echo "Starting LEVI GUI..."
-java -jar "$JAR_FILE"
+java -Xdock:icon="$SCRIPT_DIR/icons/android-chrome-512x512.png" \
+     -Xdock:name="LEVI for SNOMED" \
+     -jar "$JAR_FILE"

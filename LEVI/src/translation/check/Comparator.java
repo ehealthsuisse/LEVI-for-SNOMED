@@ -212,6 +212,7 @@ public class Comparator {
 		            matchFound = true;
 		            
 		            if ("0".equals(oldDesccriptionStatus)) {
+		                resultCollector.addDescriptionToConceptMapping(oldDescriptionId, conceptId);
 		                resultCollector.setFullTranslationReactivation(
 								oldDescriptionId, 
 								"", //placeholder for preferred term
@@ -241,8 +242,7 @@ public class Comparator {
 		                    // both not empty but different
 		                    || (oldAccept != null && !oldAccept.isEmpty()
 		                        && newAccept != null && !newAccept.isEmpty()
-		                        && !oldAccept.equalsIgnoreCase(newAccept))) {
-		                resultCollector.setFullTranslationChanges(
+		                        && !oldAccept.equalsIgnoreCase(newAccept))) {		                resultCollector.addDescriptionToConceptMapping(oldDescriptionId, conceptId);		                resultCollector.setFullTranslationChanges(
 								oldDescriptionId, 
 								"", //placeholder for preferred term
 								newTerm,

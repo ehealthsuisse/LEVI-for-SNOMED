@@ -51,12 +51,7 @@ public class DbConnection {
 	 * @throws ClassNotFoundException If the JDBC driver class is not found.
 	 */
 	public void connect() throws SQLException, ClassNotFoundException {
-//		Class.forName(JDBC_DRIVER);
-		try {
-			connection = DriverManager.getConnection(conf.getSERVER_URL(), conf.getUSERNAME(), conf.getPASSWORD());
-		} catch (SQLException e) {
-			logger.error("Failed to establish connection: {}", e.getMessage());
-		}
+		connection = DriverManager.getConnection(conf.getSERVER_URL(), conf.getUSERNAME(), conf.getPASSWORD());
 	}
 
 	/**

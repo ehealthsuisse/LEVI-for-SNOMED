@@ -300,6 +300,56 @@ Or run directly: `java -jar target/levi-gui-1.0.0.jar`
 
 For more details, see [LEVI-GUI/INSTALLATION.md](LEVI-GUI/INSTALLATION.md) and [LEVI-GUI/README-GUI.md](LEVI-GUI/README-GUI.md)
 
+## Group-Based Aligned Batch Export (`translate-delta`)
+
+When running the `translate-delta` task (`CompareManager.runGenerateDelta`), LEVI now writes output files grouped by the combination of change types that apply to each concept, instead of four independent flat files.
+
+### How it works
+
+1. **Concept matrix** – After all delta data is generated, every concept ID is mapped to the set of change types that apply to it (`CHANGE`, `ADDITION`, `INACTIVATION`, `REACTIVATION`).
+2. **Group assignment** – Each concept is placed in exactly one of 15 groups (G1–G15) based on its unique combination:
+
+   | Group | Change types |
+   |-------|-------------|
+   | G1 | CHANGE |
+   | G2 | ADDITION |
+   | G3 | INACTIVATION |
+   | G4 | REACTIVATION |
+   | G5 | CHANGE + ADDITION |
+   | G6 | CHANGE + INACTIVATION |
+   | G7 | CHANGE + REACTIVATION |
+   | G8 | ADDITION + INACTIVATION |
+   | G9 | ADDITION + REACTIVATION |
+   | G10 | INACTIVATION + REACTIVATION |
+   | G11 | CHANGE + ADDITION + INACTIVATION |
+   | G12 | CHANGE + ADDITION + REACTIVATION |
+   | G13 | CHANGE + INACTIVATION + REACTIVATION |
+   | G14 | ADDITION + INACTIVATION + REACTIVATION |
+   | G15 | CHANGE + ADDITION + INACTIVATION + REACTIVATION |
+
+3. **Aligned batch splitting** – If a group contains more than `batchSize` concepts (default: **1 000**, configurable via the `BatchExportService` constructor), the concept list is split into chunks. All files in the same group and batch always contain the **identical** set of concept IDs.
+
+### Output file naming
+
+| Scenario | Example file names |
+|----------|--------------------|
+| No split needed | `G5_changes.tsv`, `G5_additions.tsv` |
+| Split needed | `G5_changes_batch1.tsv`, `G5_additions_batch1.tsv`, `G5_changes_batch2.tsv`, … |
+
+Only change types that are actually present in a group produce a file (e.g. G5 produces no inactivation file).
+
+### New / modified classes
+
+| Class | Role |
+|-------|------|
+| `ChangeType` | Enum: `CHANGE`, `ADDITION`, `INACTIVATION`, `REACTIVATION` |
+| `BatchExportService` | Builds the concept matrix, assigns groups, splits batches, writes files |
+| `ResultCollector` | Extended with a description-ID → concept-ID map used to resolve concept IDs for change and reactivation rows |
+| `Comparator` | Populates the description → concept mapping when change/reactivation entries are created |
+| `CompareManager` | `runGenerateDelta` now delegates all file writing to `BatchExportService` |
+
+---
+
 ## Known Issues / Limitations
 
 * No multithreading for large files

@@ -6,6 +6,7 @@ import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +43,16 @@ public class LeviGuiApplication extends Application {
             primaryStage.setScene(scene);
             primaryStage.setMinWidth(1000);
             primaryStage.setMinHeight(700);
+
+            // Set window icons (multiple sizes for OS taskbar / dock)
+            for (String size : new String[]{"16", "32", "192", "512"}) {
+                String name = size.equals("16") || size.equals("32")
+                        ? "/icons/favicon-" + size + "x" + size + ".png"
+                        : "/icons/android-chrome-" + size + "x" + size + ".png";
+                try (java.io.InputStream is = getClass().getResourceAsStream(name)) {
+                    if (is != null) primaryStage.getIcons().add(new Image(is));
+                } catch (Exception ignored) {}
+            }
             
             // Initialize controller with stage
             controller.setStage(primaryStage);
@@ -61,6 +72,20 @@ public class LeviGuiApplication extends Application {
     }
     
     public static void main(String[] args) {
+        // Set macOS Dock icon programmatically (fallback when -Xdock:icon is not set)
+        try {
+            if (java.awt.Taskbar.isTaskbarSupported()) {
+                java.awt.Taskbar taskbar = java.awt.Taskbar.getTaskbar();
+                if (taskbar.isSupported(java.awt.Taskbar.Feature.ICON_IMAGE)) {
+                    java.net.URL iconUrl = LeviGuiApplication.class
+                            .getResource("/icons/android-chrome-512x512.png");
+                    if (iconUrl != null) {
+                        taskbar.setIconImage(
+                                java.awt.Toolkit.getDefaultToolkit().getImage(iconUrl));
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
         launch(args);
     }
 }

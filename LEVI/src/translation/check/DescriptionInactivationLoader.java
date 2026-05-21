@@ -38,7 +38,7 @@ public class DescriptionInactivationLoader {
             @SuppressWarnings("resource")
 			Scanner scanner = new Scanner(System.in);
             while (true) {
-                System.out.print("No 'Language Code' column found in inactivation tab. Please enter the language code (de, fr, it): ");
+                logger.info("No 'Language Code' column found in inactivation tab. Please enter the language code (de, fr, it): ");
                 language = scanner.nextLine().trim().toLowerCase();
                 if (language.equals("de") || language.equals("fr") || language.equals("it")) {
                     break;
