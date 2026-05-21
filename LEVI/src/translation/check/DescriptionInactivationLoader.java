@@ -6,8 +6,12 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class DescriptionInactivationLoader {
 	
+	private static final Logger logger = LoggerFactory.getLogger(DescriptionInactivationLoader.class);
 	//TODO: Add check if the file is empty or has no rows
 
 	public void loadAndInsertExcel(Sheet sheet, ResultCollector collector, String releaseType) {
@@ -39,7 +43,7 @@ public class DescriptionInactivationLoader {
                 if (language.equals("de") || language.equals("fr") || language.equals("it")) {
                     break;
                 } else {
-                    System.out.println("Invalid language code. Please enter 'de', 'fr', or 'it'.");
+                    logger.info("Invalid language code. Please enter 'de', 'fr', or 'it'.");
                 }
             }
         }
@@ -54,8 +58,8 @@ public class DescriptionInactivationLoader {
             
             if(!hasLanguageCode) { //for older version of inactivation files without language code column
             	descriptionId = getCellAsString(row.getCell(0));
-    			term = getCellAsString(row.getCell(2));
-    			conceptId = getCellAsString(row.getCell(9));
+				term = getCellAsString(row.getCell(2));
+				conceptId = getCellAsString(row.getCell(9));
 			} else { //for newer version of inactivation files with language code column
 	            descriptionId = getCellAsString(row.getCell(0));
 				term = getCellAsString(row.getCell(4));
@@ -67,7 +71,7 @@ public class DescriptionInactivationLoader {
 			
 			//if language code is present, use from the cell
 			if (hasLanguageCode && language == null) {
-				System.out.println("There is a language code tab in the header, but no language code was found in the file. Please check the file.");
+				logger.error("There is a language code tab in the header, but no language code was found in the file. Please check the file.");
 				System.exit(0);
 			}
 			

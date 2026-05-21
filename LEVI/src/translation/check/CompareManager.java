@@ -30,7 +30,7 @@ public class CompareManager {
 		reader.readFile(path);
 		writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", comparator.generateDescriptionAdditionAndChangesDelta());
 		if(resultCollector.containsType("TRANSLATION_CHANGES")) {
-			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", comparator.generateDescriptionChangesDelta());
+			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES"));
 		}
 	}
 	
@@ -45,14 +45,17 @@ public class CompareManager {
 		writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", comparator.generateDescriptionAdditionAndChangesDelta());
 		
 		if(resultCollector.containsType("TRANSLATION_CHANGES")) {
-			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", comparator.generateDescriptionChangesDelta());
+			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES"));
+		}
+		
+		if(resultCollector.containsType("TRANSLATION_REACTIVATION")) {
+			writer.writeToFile(destination + "\\DeltaDescReactivation.tsv", comparator.generateDescriptionChangesDelta("TRANSLATION_REACTIVATION"));
 		}
 		
 		writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", comparator.generateDescriptionInactivationDelta());
 	}
 	
 	public void runCheckEszettInExtension(String destination) throws ClassNotFoundException, IOException, SQLException {
-		comparator.checkEszettInExtension();
 		String fileName = "\\EszettInactivations.tsv";
 		int i = 0;
 		
@@ -72,4 +75,11 @@ public class CompareManager {
 		writer.writeToFile(destination + "\\DeltaNotPublishedTranslations.tsv", comparator.generateDeltaOfNotPublishedTranslations());
 		
 	}
+	
+	public void runCheckDuplicateTerms(String destination) 
+	        throws IOException, ClassNotFoundException, SQLException {
+	    writer.writeToFile(destination + "\\DuplicateTerms.tsv", 
+	        comparator.checkDuplicateTerms());
+	}
+
 }

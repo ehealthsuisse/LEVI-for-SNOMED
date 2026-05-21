@@ -2,11 +2,14 @@ package translation.check;
 
 import java.sql.*;
 import java.util.*;
+import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
-
 import java.io.UnsupportedEncodingException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The DB_connection class facilitates interactions with the SNOMED CT database,
@@ -29,16 +32,17 @@ import java.io.UnsupportedEncodingException;
  */
 public class DbConnection {
 
+	private static final Logger logger = LoggerFactory.getLogger(DbConnection.class);
+
 	// JDBC driver and connection settings
 	private Connection connection;
 	private ResultCollector resultCollector;
-    private final Conf conf;
-	
+	private final Conf conf;
+
 	public DbConnection(ResultCollector collector, Conf conf) {
-        this.resultCollector = collector;
-        this.conf = conf;
+		this.resultCollector = collector;
+		this.conf = conf;
 	}
-	
 
 	/**
 	 * Opens a new database connection.
@@ -51,7 +55,7 @@ public class DbConnection {
 		try {
 			connection = DriverManager.getConnection(conf.getSERVER_URL(), conf.getUSERNAME(), conf.getPASSWORD());
 		} catch (SQLException e) {
-			System.err.println("Failed to establish connection: " + e.getMessage());
+			logger.error("Failed to establish connection: {}", e.getMessage());
 		}
 	}
 
@@ -63,7 +67,7 @@ public class DbConnection {
 			try {
 				connection.close();
 			} catch (SQLException e) {
-				System.err.println("Failed to close connection: " + e.getMessage());
+				logger.error("Failed to close connection: {}", e.getMessage());
 			}
 		}
 	}
@@ -79,57 +83,112 @@ public class DbConnection {
 	 * @throws IllegalArgumentException     if an unsupported language code is
 	 *                                      provided
 	 */
-	public void searchTranslations(Set<String> conceptIDs) //TODO: Improve so it only returns entries from active concepts
-			throws SQLException, UnsupportedEncodingException, ClassNotFoundException {
+	public void searchTranslations(Set<String> conceptIDs) throws SQLException, UnsupportedEncodingException, ClassNotFoundException {
 		connect();
 
-		String baseQuery = """
-				    SELECT
-				        d.id,
-				        d.conceptId,
-				        d.term,
-				        d.languageCode,
-				        d.typeId,
-				        d.caseSignificanceId,
-				        d.effectiveTime,
-				        d.active AS descriptionActive,
-				        c.active AS conceptActive,
-				        l.acceptabilityId
-				    FROM
-				        full_description d
-				    LEFT JOIN (
-				        SELECT
-				            fc1.*
-				        FROM
-				            full_concept fc1
-				        INNER JOIN (
-				            SELECT
-				                id,
-				                MAX(effectiveTime) AS max_time
-				            FROM
-				                full_concept
-				            GROUP BY
-				                id
-				        ) latest
-				        ON fc1.id = latest.id
-				        AND fc1.effectiveTime = latest.max_time
-				    ) c
-				    ON d.conceptId = c.id
-				    LEFT JOIN
-				        full_refset_Language l
-				        ON d.id = l.referencedComponentId
-				    WHERE
-				        d.conceptId
-				""";
-		// Generate batched queries for concept IDs
-		List<String> batchedQueries = buildBatchedQueries(conceptIDs, baseQuery);
+		Set<String> languages = conf.getLocalLanguages();
+		List<String> refSetIds = new ArrayList<>();
+		for (String lang : languages) {
+			String id = conf.getLanguageRefSetId(lang);
+			if (id != null)
+				refSetIds.add("'" + id + "'");
+		}
+		String refSetPlaceholder = String.join(",", refSetIds);
+		
+		 String langPlaceholders = languages.stream()
+		            .map(l -> "'" + l + "'")
+		            .collect(Collectors.joining(","));
 
-		for (String query : batchedQueries) {
-			try (PreparedStatement stmt = connection.prepareStatement(query)) {
-				try (ResultSet rs = stmt.executeQuery()) {
-					processTranslationResultSet("additions",rs);
+		try (Statement stmt = connection.createStatement()) {
+
+			stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_concept_ids");
+			stmt.execute("""
+					    CREATE TEMPORARY TABLE temp_concept_ids (
+					        conceptId VARCHAR(20) PRIMARY KEY
+					    )
+					""");
+
+			int batchSize = 5000;
+			List<String> idList = new ArrayList<>(conceptIDs);
+			for (int i = 0; i < idList.size(); i += batchSize) {
+				List<String> batch = idList.subList(i, Math.min(i + batchSize, idList.size()));
+				StringBuilder insertSql = new StringBuilder("INSERT INTO temp_concept_ids VALUES ");
+				for (int j = 0; j < batch.size(); j++) {
+					insertSql.append("('").append(batch.get(j)).append("')");
+					if (j < batch.size() - 1)
+						insertSql.append(",");
 				}
+				stmt.execute(insertSql.toString());
 			}
+
+			String query = """
+			        SELECT
+			            d.id,
+			            d.conceptId,
+			            d.term,
+			            d.languageCode,
+			            d.typeId,
+			            d.caseSignificanceId,
+			            d.effectiveTime,
+			            d.active AS descriptionActive,
+			            c.active AS conceptActive,
+			            l.acceptabilityId
+			        FROM (
+			            SELECT fd1.*
+			            FROM full_description fd1
+			            INNER JOIN (
+			                SELECT
+			                    fd2.conceptId,
+			                    fd2.languageCode,
+			                    fd2.term,
+			                    MAX(fd2.effectiveTime) AS max_time
+			                FROM full_description fd2
+			                INNER JOIN temp_concept_ids t ON fd2.conceptId = t.conceptId
+			                GROUP BY fd2.conceptId, fd2.languageCode, fd2.term
+			            ) latest_d
+			              ON fd1.conceptId     = latest_d.conceptId
+			             AND fd1.languageCode  = latest_d.languageCode
+			             AND fd1.term          = latest_d.term
+			             AND fd1.effectiveTime = latest_d.max_time
+			            WHERE fd1.languageCode IN (
+			        """ + langPlaceholders + """
+			            )
+			        ) d
+			        LEFT JOIN (
+			            SELECT fc1.*
+			            FROM full_concept fc1
+			            INNER JOIN (
+			                SELECT fc2.id, MAX(fc2.effectiveTime) AS max_time
+			                FROM full_concept fc2
+			                INNER JOIN temp_concept_ids t ON fc2.id = t.conceptId
+			                GROUP BY fc2.id
+			            ) latest_c
+			              ON fc1.id = latest_c.id
+			             AND fc1.effectiveTime = latest_c.max_time
+			        ) c ON d.conceptId = c.id
+			        LEFT JOIN (
+			            SELECT l1.referencedComponentId, l1.acceptabilityId, l1.refsetId
+			            FROM full_refset_Language l1
+			            INNER JOIN (
+			                SELECT referencedComponentId, refsetId, MAX(effectiveTime) AS max_time
+			                FROM full_refset_Language
+			                WHERE refsetId IN (
+			        """ + refSetPlaceholder + """
+			                )
+			                GROUP BY referencedComponentId, refsetId
+			            ) latest_l
+			              ON l1.referencedComponentId = latest_l.referencedComponentId
+			             AND l1.refsetId             = latest_l.refsetId
+			             AND l1.effectiveTime        = latest_l.max_time
+			            GROUP BY l1.referencedComponentId, l1.refsetId, l1.acceptabilityId
+			        ) l ON d.id = l.referencedComponentId
+			        """;
+
+			try (ResultSet rs = stmt.executeQuery(query)) {
+				processTranslationResultSet("additions", rs);
+			}
+
+			stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_concept_ids");
 		}
 		disconnect();
 	}
@@ -144,48 +203,58 @@ public class DbConnection {
 	 * @throws ClassNotFoundException
 	 */
 	public void getOverviewOfTranslationsDB(Set<String> conceptIDs)
-			throws SQLException, ClassNotFoundException, UnsupportedEncodingException {
-		connect();
-		// Base query for retrieving translation information
-		String baseQuery = """
-				    SELECT
-				        fc.active AS conceptActive,
-				        fd.conceptId,
-				        fd.typeId,
-				        fd.term,
-				        fd.languageCode
-				    FROM
-				        full_concept fc
-				    JOIN (
-				        SELECT
-				            id,
-				            MAX(effectiveTime) AS max_time
-				        FROM
-				            full_concept
-				        GROUP BY
-				            id
-				    ) latest
-				        ON fc.id = latest.id
-				        AND fc.effectiveTime = latest.max_time
-				    JOIN
-				        full_description fd
-				        ON fc.id = fd.conceptId
-				    WHERE
-				        fd.active = 1
-				    AND
-				        fc.id
-				""";
+	        throws SQLException, ClassNotFoundException, UnsupportedEncodingException {
+	    connect();
 
-		// Generate batched queries for concept IDs
-		List<String> batchedQueries = buildBatchedQueries(conceptIDs, baseQuery);
+	    try (Statement stmt = connection.createStatement()) {
+	        stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_concept_ids");
+	        stmt.execute("""
+	            CREATE TEMPORARY TABLE temp_concept_ids (
+	                conceptId VARCHAR(50) PRIMARY KEY
+	            )
+	        """);
 
-		for (String query : batchedQueries) {
-			try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
-				// Process the result set and add entries to TranslationOverview
-				processTranslationResultSet("overview", rs);
-			}
-		}
-		disconnect();
+	        // Batch insert
+	        int batchSize = 5000;
+	        List<String> idList = new ArrayList<>(conceptIDs);
+	        for (int i = 0; i < idList.size(); i += batchSize) {
+	            List<String> batch = idList.subList(i, Math.min(i + batchSize, idList.size()));
+	            StringBuilder insertSql = new StringBuilder("INSERT INTO temp_concept_ids VALUES ");
+	            for (int j = 0; j < batch.size(); j++) {
+	                insertSql.append("('").append(batch.get(j)).append("')");
+	                if (j < batch.size() - 1) insertSql.append(",");
+	            }
+	            stmt.execute(insertSql.toString());
+	        }
+
+	        String query = """
+	            SELECT
+	                fc.active AS conceptActive,
+	                fd.conceptId,
+	                fd.id,
+	                fd.typeId,
+	                fd.term,
+	                fd.languageCode,
+	                fd.caseSignificanceId,
+	                fd.active AS descriptionActive
+	            FROM full_concept fc
+	            INNER JOIN temp_concept_ids t ON fc.id = t.conceptId
+	            INNER JOIN (
+	                SELECT id, MAX(effectiveTime) AS max_time
+	                FROM full_concept
+	                GROUP BY id
+	            ) latest_c ON fc.id = latest_c.id AND fc.effectiveTime = latest_c.max_time
+	            INNER JOIN full_description fd ON fc.id = fd.conceptId
+	            WHERE fd.active = 1
+	        """;
+
+	        try (ResultSet rs = stmt.executeQuery(query)) {
+	            processTranslationResultSet("overview", rs);
+	        }
+
+	        stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_concept_ids");
+	    }
+	    disconnect();
 	}
 
 	/**
@@ -195,78 +264,98 @@ public class DbConnection {
 	 * @param descriptionIds a set of description IDs and terms to search for
 	 * @throws SQLException           if a database access error occurs
 	 * @throws ClassNotFoundException if the JDBC driver is not found
-	 */	
+	 */
 	public void searchDescriptions(List<List<String>> newInactivation) throws SQLException, ClassNotFoundException {
 	    List<Triple<String, String, String>> termConceptPairs = new ArrayList<>();
 
 	    for (List<String> row : newInactivation) {
-	        String term = row.get(1);              // exact term
+	        String term = row.get(1);
 	        String conceptId = row.get(3);
-	        String languageCode = row.get(2);      // language code
-	        Triple<String, String, String> pair = Triple.of(term, conceptId, languageCode);
-	        termConceptPairs.add(pair);
+	        String languageCode = row.get(2);
+	        termConceptPairs.add(Triple.of(term, conceptId, languageCode));
 	    }
 
 	    connect();
 
-	    // create TEMP TABLE with languageCode
-	    String createTempTable = """
-	        CREATE TEMPORARY TABLE IF NOT EXISTS tmp_pairs (
-	            term VARBINARY(255),
-	            conceptId VARBINARY(50),
-	            languageCode VARBINARY(10)
-	        )
-	    """;
-
+	    // Create TEMP TABLE once
 	    try (Statement stmt = connection.createStatement()) {
-	        stmt.execute(createTempTable);
+	        stmt.execute("DROP TEMPORARY TABLE IF EXISTS tmp_pairs");
+	        stmt.execute("""
+	            CREATE TEMPORARY TABLE tmp_pairs (
+	                term VARCHAR(255),
+	                conceptId VARCHAR(50),
+	                languageCode VARCHAR(10),
+	                INDEX idx_tmp_all (conceptId, term(200), languageCode)
+	            ) ENGINE=InnoDB
+	        """);
 	    }
 
-	    // insert pairs
-	    String insertPair = "INSERT INTO tmp_pairs (term, conceptId, languageCode) VALUES (?, ?, ?)";
-	    try (PreparedStatement ps = connection.prepareStatement(insertPair)) {
-	        for (Triple<String, String, String> pair : termConceptPairs) {
-	            String conceptId = pair.getMiddle();
-	            if (conceptId.length() > 30) {
-	                System.out.println("❗ conceptId too long: " + conceptId + " (length: " + conceptId.length() + ")");
-	            }
-	            ps.setString(1, pair.getLeft());
-	            ps.setString(2, pair.getMiddle());
-	            ps.setString(3, pair.getRight());
-	            ps.addBatch();
-	        }
-	        ps.executeBatch();
-	    }
-
-	    System.out.println("Temporary table tmp_pairs created and populated with term-concept-language pairs.");
 
 	    String query = """
-	        SELECT fd.id, fd.term, fd.conceptId, fd.active, fd.languageCode
-	        FROM full_description fd
-	        INNER JOIN (
-	            SELECT conceptId, term, languageCode, MAX(CAST(effectiveTime AS UNSIGNED)) AS max_effectiveTime
-	            FROM full_description
-	            GROUP BY conceptId, term, languageCode
-	        ) latest
-	          ON fd.conceptId = latest.conceptId
-	         AND fd.term = latest.term
-	         AND fd.languageCode = latest.languageCode
-	         AND CAST(fd.effectiveTime AS UNSIGNED) = latest.max_effectiveTime
-	        INNER JOIN tmp_pairs tp
-	          ON fd.conceptId = tp.conceptId
-	         AND fd.term = tp.term
-	         AND fd.languageCode = tp.languageCode
-	        WHERE fd.active = 1
-	    """;
+		        SELECT id, term, conceptId, active, languageCode
+			    FROM (
+			        SELECT fd.id,
+			               fd.term,
+			               fd.conceptId,
+			               fd.active,
+			               fd.languageCode,
+			               fd.effectiveTime,
+			               ROW_NUMBER() OVER (
+			                   PARTITION BY fd.conceptId, fd.term, fd.languageCode
+			                   ORDER BY fd.effectiveTime DESC
+			               ) AS rn
+			        FROM full_description fd FORCE INDEX (idx_fd_concept_lang_term_eff)
+			        INNER JOIN tmp_pairs tp
+			            ON fd.conceptId     = tp.conceptId
+			           AND fd.languageCode  = tp.languageCode
+			           AND fd.term          = tp.term
+			    ) ranked
+			    WHERE rn = 1 AND active = 1
+		    """;
 
-	    try (PreparedStatement ps = connection.prepareStatement(query);
-	         ResultSet rs = ps.executeQuery()) {
-	        System.out.println("Processing translation result set for inactivations...");
-	        processTranslationResultSet("inactivations", rs);
+	    String insertPair = "INSERT INTO tmp_pairs (term, conceptId, languageCode) VALUES (?, ?, ?)";
+	    String truncate   = "TRUNCATE TABLE tmp_pairs";
+
+	    int batchSize = 10_000;
+	    int totalBatches = (int) Math.ceil((double) termConceptPairs.size() / batchSize);
+
+	    for (int i = 0; i < termConceptPairs.size(); i += batchSize) {
+	        int batchNumber = (i / batchSize) + 1;
+	        List<Triple<String, String, String>> batch =
+	            termConceptPairs.subList(i, Math.min(i + batchSize, termConceptPairs.size()));
+
+	        // Clear tmp_pairs for this batch
+	        try (Statement stmt = connection.createStatement()) {
+	            stmt.execute(truncate);
+	        }
+
+	        // Insert current batch
+	        try (PreparedStatement ps = connection.prepareStatement(insertPair)) {
+	            for (Triple<String, String, String> pair : batch) {
+	                ps.setString(1, pair.getLeft());
+	                ps.setString(2, pair.getMiddle());
+	                ps.setString(3, pair.getRight());
+	                ps.addBatch();
+	            }
+	            ps.executeBatch();
+	        }
+
+	        // Execute query for this batch
+	        try (PreparedStatement ps = connection.prepareStatement(query);
+	             ResultSet rs = ps.executeQuery()) {
+	            logger.info("Processing translation result set for batch {}/{}...", batchNumber, totalBatches);
+	            processTranslationResultSet("inactivations", rs);
+	        }
+	    }
+
+	    // Cleanup
+	    try (Statement stmt = connection.createStatement()) {
+	        stmt.execute("DROP TEMPORARY TABLE IF EXISTS tmp_pairs");
 	    }
 
 	    disconnect();
 	}
+
 
 	/**
 	 * Retrieves and processes concepts containing the character "ß" in their German
@@ -280,37 +369,37 @@ public class DbConnection {
 
 		connect();
 		String query = """
-			    SELECT
-			        fd.id,
-			        fd.active AS descriptionActive,
-			        fd.conceptId,
-			        fd.typeId,
-			        fd.term,
-			        fd.caseSignificanceId,
-			        fr.acceptabilityId
-			    FROM full_description fd
-			    INNER JOIN (
-			        SELECT
-			            conceptId,
-			            term,
-			            languageCode,
-			            MAX(CAST(effectiveTime AS UNSIGNED)) AS max_effectiveTime
-			        FROM full_description
-			        GROUP BY conceptId, term, languageCode
-			    ) latest
-			      ON fd.conceptId = latest.conceptId
-			     AND fd.term = latest.term
-			     AND fd.languageCode = latest.languageCode
-			     AND CAST(fd.effectiveTime AS UNSIGNED) = latest.max_effectiveTime
-			    INNER JOIN full_refset_Language fr
-			      ON fd.id = fr.referencedComponentId
-			    WHERE fd.languageCode = 'de'
-			      AND fd.term REGEXP 'ß'
-			      AND fd.active = 1
-			""";
-		
-		System.out.println("Eszett check: Starting with query...");
-		try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(query)) {		
+				    SELECT
+				        fd.id,
+				        fd.active AS descriptionActive,
+				        fd.conceptId,
+				        fd.typeId,
+				        fd.term,
+				        fd.caseSignificanceId,
+				        fr.acceptabilityId
+				    FROM full_description fd
+				    INNER JOIN (
+				        SELECT
+				            conceptId,
+				            term,
+				            languageCode,
+				            MAX(CAST(effectiveTime AS UNSIGNED)) AS max_effectiveTime
+				        FROM full_description
+				        GROUP BY conceptId, term, languageCode
+				    ) latest
+				      ON fd.conceptId = latest.conceptId
+				     AND fd.term = latest.term
+				     AND fd.languageCode = latest.languageCode
+				     AND CAST(fd.effectiveTime AS UNSIGNED) = latest.max_effectiveTime
+				    INNER JOIN full_refset_Language fr
+				      ON fd.id = fr.referencedComponentId
+				    WHERE fd.languageCode = 'de'
+				      AND fd.term REGEXP 'ß'
+				      AND fd.active = 1
+				""";
+
+		logger.info("Eszett check: Starting with query...");
+		try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
 			processTranslationResultSet("searchEszett", rs);
 		}
 		disconnect();
@@ -350,6 +439,26 @@ public class DbConnection {
 		return queries;
 	}
 
+	public static List<String> buildBatchedQueries2(Set<String> ids, String baseQuery) {
+		List<String> queries = new ArrayList<>();
+		int batchSize = 5000;
+		List<String> batch = new ArrayList<>(batchSize);
+
+		for (String id : ids) {
+			batch.add("'" + id + "'");
+			if (batch.size() == batchSize) {
+				String idList = String.join(",", batch);
+				queries.add(baseQuery.replace("/*IDS*/", idList));
+				batch.clear();
+			}
+		}
+		if (!batch.isEmpty()) {
+			String idList = String.join(",", batch);
+			queries.add(baseQuery.replace("/*IDS*/", idList));
+		}
+		return queries;
+	}
+
 	public static List<String> buildBatchedTermConceptIdQueries(Set<Pair<String, String>> termConceptPairs,
 			String baseQuery) {
 		List<String> queries = new ArrayList<>();
@@ -371,6 +480,83 @@ public class DbConnection {
 		}
 
 		return queries;
+	}
+
+	/**
+	 * Searches for duplicate terms across active descriptions in the extension,
+	 * processes the results and populates the resultCollector with type
+	 * "DUPLICATE_TERM".
+	 *
+	 * @throws SQLException           if a database access error occurs
+	 * @throws ClassNotFoundException if the JDBC driver is not found
+	 */
+	public void searchDuplicateTerms() throws SQLException, ClassNotFoundException {
+		connect();
+
+		String query = """
+				SELECT
+				    d1.conceptId,
+				    d1.id,
+				    d1.languageCode,
+				    d1.typeId,
+				    d1.term,
+				    d2.typeId,
+				    d2.languageCode,
+				    d2.id,
+				    d2.conceptId,
+				    CASE WHEN d1.conceptId = d2.conceptId THEN 'true' ELSE 'false' END AS sameConcept
+				FROM (
+				    SELECT fd1.*
+				    FROM full_description fd1
+				    INNER JOIN (
+				        SELECT conceptId, languageCode, term, MAX(effectiveTime) AS max_time
+				        FROM full_description
+				        GROUP BY conceptId, languageCode, term
+				    ) latest
+				      ON fd1.conceptId     = latest.conceptId
+				     AND fd1.languageCode  = latest.languageCode
+				     AND fd1.term          = latest.term
+				     AND fd1.effectiveTime = latest.max_time
+				    WHERE fd1.active = 1
+				) d1
+				JOIN (
+				    SELECT fd2.*
+				    FROM full_description fd2
+				    INNER JOIN (
+				        SELECT conceptId, languageCode, term, MAX(effectiveTime) AS max_time
+				        FROM full_description
+				        GROUP BY conceptId, languageCode, term
+				    ) latest
+				      ON fd2.conceptId     = latest.conceptId
+				     AND fd2.languageCode  = latest.languageCode
+				     AND fd2.term          = latest.term
+				     AND fd2.effectiveTime = latest.max_time
+				    WHERE fd2.active = 1
+				) d2
+				  ON d1.term          = d2.term
+				 AND d1.languageCode  = d2.languageCode
+				 AND d1.id            < d2.id
+				WHERE d1.languageCode IN ('de', 'fr', 'it')
+				""";
+
+		logger.info("Duplicate term check: Starting query...");
+		try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
+			while (rs.next()) {
+				resultCollector.setDuplicateTerm(rs.getString("d1.conceptId"), // conceptId1
+						rs.getString("d1.id"), // descriptionId1
+						rs.getString("d1.languageCode"), // languageCode1
+						rs.getString("d1.typeId"), // typeId1
+						rs.getString("d1.term"), // term
+						rs.getString("d2.typeId"), // typeId2
+						rs.getString("d2.languageCode"), // languageCode2
+						rs.getString("d2.id"), // descriptionId2
+						rs.getString("d2.conceptId"), // conceptId2
+						rs.getString("sameConcept") // sameConcept
+				);
+			}
+		}
+		logger.info("Duplicate term check: Found {} entries.", resultCollector.getDataByType("DUPLICATE_TERM").size());
+		disconnect();
 	}
 
 	/**
@@ -397,7 +583,7 @@ public class DbConnection {
 	 *                      object.
 	 */
 	private void processTranslationResultSet(String resultSetType, ResultSet rs) throws SQLException {
-				
+
 		ResultSetMetaData metaData = rs.getMetaData();
 		int columnCount = metaData.getColumnCount();
 		Set<String> availableColumns = new HashSet<>();
@@ -407,69 +593,58 @@ public class DbConnection {
 		}
 
 		while (rs.next()) {
-	        String descriptionId       = getSafe(rs, "id", availableColumns);
-	        String conceptId           = getSafe(rs, "conceptId", availableColumns);
-	        String conceptStatus       = getSafe(rs, "conceptActive", availableColumns);
-	        String descriptionStatus   = getSafe(rs, "descriptionActive", availableColumns);
-	        String term                = getSafe(rs, "term", availableColumns);
-	        String languageCode        = getSafe(rs, "languageCode", availableColumns);
-	        String caseSignificance    = getSafe(rs, "caseSignificanceId", availableColumns);
-	        String type                = getSafe(rs, "typeId", availableColumns);
-	        String acceptabilityId     = getSafe(rs, "acceptabilityId", availableColumns);
-	        String languageReferenceSet = conf.getLanguageRefSetId(languageCode);
-	        
-	        switch (resultSetType) {
-	            case "additions":
-	                resultCollector.setFullExtensionTranslation(
-	                        conceptId, conceptStatus, "", "", term,
-	                        languageCode, caseSignificance, type,
-	                        languageReferenceSet, acceptabilityId,
-	                        descriptionId, descriptionStatus
-	                );
-	                break;
+			String descriptionId = getSafe(rs, "id", availableColumns);
+			String conceptId = getSafe(rs, "conceptId", availableColumns);
+			String conceptStatus = getSafe(rs, "conceptActive", availableColumns);
+			String descriptionStatus = getSafe(rs, "descriptionActive", availableColumns);
+			String term = getSafe(rs, "term", availableColumns);
+			String languageCode = getSafe(rs, "languageCode", availableColumns);
+			String caseSignificance = getSafe(rs, "caseSignificanceId", availableColumns);
+			String type = getSafe(rs, "typeId", availableColumns);
+			String acceptabilityId = getSafe(rs, "acceptabilityId", availableColumns);
+			String languageReferenceSet = conf.getLanguageRefSetId(languageCode);
 
-	            case "overview":
-					resultCollector.setFullExtensionTranslation(conceptId, conceptStatus,
-							"", // FSN placeholder
-							"", // Preferred Term placeholder
-							term, languageCode, caseSignificance,
-							type, // Type placeholder
-							languageReferenceSet, // Language Reference Set placeholder
-							acceptabilityId, // Acceptability ID placeholder
-							descriptionId, // Description ID placeholder
-							descriptionStatus); // Description Status placeholder
-	            	
-	            	resultCollector.setFullTranslationOverview(
-	                        conceptId, term, type, languageCode, conceptStatus
-	                );
-	                break;
+			switch (resultSetType) {
+			case "additions":
+				resultCollector.setFullExtensionTranslation(conceptId, conceptStatus, "", "", term, languageCode,
+						caseSignificance, type, languageReferenceSet, acceptabilityId, descriptionId,
+						descriptionStatus);
+				break;
 
-	            case "inactivations":
-	                resultCollector.setFullExtensionInactivations(
-	                        descriptionId, languageCode, conceptId,
-	                        "", // Preferred Term placeholder
-	                        term, 
-	                        "", // Inactivation Reason placeholder
-	                        "", // Association Target ID 1 placeholder
-	                        "", // Association Target ID 2 placeholder
-	                        "", // Association Target ID 3 placeholder
-	                        "", // Association Target ID 4 placeholder
-	                        ""); // Notes placeholder
-	                break;
-	                
-	        	case "searchEszett":
-	        		resultCollector.setFullExtensionTranslation(
-	        				conceptId, conceptStatus, "", "", term,
-	                        languageCode, caseSignificance, type,
-	                        languageReferenceSet, acceptabilityId,
-	                        descriptionId, descriptionStatus
-	                );
-	        		break;
-	        		
-	            default:
-	                System.out.println("Unhandled result set type: " + resultSetType);
-	        }
-	    }
+			case "overview":
+				resultCollector.setFullExtensionTranslation(conceptId, conceptStatus, "", // FSN placeholder
+						"", // Preferred Term placeholder
+						term, languageCode, caseSignificance, type, // Type placeholder
+						languageReferenceSet, // Language Reference Set placeholder
+						acceptabilityId, // Acceptability ID placeholder
+						descriptionId, // Description ID placeholder
+						descriptionStatus); // Description Status placeholder
+
+				resultCollector.setFullTranslationOverview(conceptId, term, type, languageCode, conceptStatus);
+				break;
+
+			case "inactivations":
+				resultCollector.setFullExtensionInactivations(descriptionId, languageCode, conceptId, "", // Preferred
+																											// Term
+																											// placeholder
+						term, "", // Inactivation Reason placeholder
+						"", // Association Target ID 1 placeholder
+						"", // Association Target ID 2 placeholder
+						"", // Association Target ID 3 placeholder
+						"", // Association Target ID 4 placeholder
+						""); // Notes placeholder
+				break;
+
+			case "searchEszett":
+				resultCollector.setFullExtensionTranslation(conceptId, conceptStatus, "", "", term, languageCode,
+						caseSignificance, type, languageReferenceSet, acceptabilityId, descriptionId,
+						descriptionStatus);
+				break;
+
+			default:
+				logger.warn("Unhandled result set type: {}", resultSetType);
+			}
+		}
 	}
 
 	public boolean hasColumn(ResultSet rs, String columnName) throws SQLException {
