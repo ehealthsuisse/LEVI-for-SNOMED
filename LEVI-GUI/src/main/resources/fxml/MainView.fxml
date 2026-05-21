@@ -46,15 +46,18 @@
                                 <ColumnConstraints minWidth="100"/>
                             </columnConstraints>
                             
-                            <Label text="DB URL:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                            <TextField fx:id="dbUrlField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <Label text="DB Name:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <TextField fx:id="dbNameField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
                             <Button fx:id="dbTestButton" text="Test" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
                             
-                            <Label text="Username:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                            <TextField fx:id="dbUsernameField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            <Label text="Port:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="dbPortField" prefWidth="80" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
                             
-                            <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-                            <PasswordField fx:id="dbPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="2"/>
+                            <Label text="Username:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <TextField fx:id="dbUsernameField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                            
+                            <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                            <PasswordField fx:id="dbPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="3" GridPane.columnSpan="2"/>
                         </GridPane>
                         
                         <Separator/>

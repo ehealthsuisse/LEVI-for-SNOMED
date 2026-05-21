@@ -37,7 +37,8 @@ public class MainController {
     private Stage stage;
     
     // Configuration Section
-    @FXML private TextField dbUrlField;
+    @FXML private TextField dbNameField;
+    @FXML private TextField dbPortField;
     @FXML private TextField dbUsernameField;
     @FXML private PasswordField dbPasswordField;
     @FXML private Button dbTestButton;
@@ -116,7 +117,8 @@ public class MainController {
     }
     
     private void setupTooltips() {
-        dbUrlField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.url")));
+        dbNameField.setTooltip(new Tooltip("Database name, e.g. SCT:CH_Dec25"));
+        dbPortField.setTooltip(new Tooltip("MySQL port, default 3306"));
         dbUsernameField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.username")));
         dbPasswordField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.password")));
         countryCodeCombo.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.country")));
@@ -154,7 +156,8 @@ public class MainController {
         cancelButton.setOnAction(e -> cancelJob());
         
         // Update config when fields change
-        dbUrlField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        dbNameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        dbPortField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbUsernameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbPasswordField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         countryCodeCombo.valueProperty().addListener((obs, old, val) -> updateConfigFromUI());
@@ -174,7 +177,8 @@ public class MainController {
     private void updateUIFromConfig() {
         AppConfig config = configService.getCurrentConfig();
         
-        dbUrlField.setText(config.getDatabase().getUrl());
+        dbNameField.setText(config.getDatabase().getDbName());
+        dbPortField.setText(String.valueOf(config.getDatabase().getDbPort()));
         dbUsernameField.setText(config.getDatabase().getUsername());
         dbPasswordField.setText(config.getDatabase().getPassword());
         
@@ -190,7 +194,12 @@ public class MainController {
     private void updateConfigFromUI() {
         AppConfig config = configService.getCurrentConfig();
         
-        config.getDatabase().setUrl(dbUrlField.getText());
+        config.getDatabase().setDbName(dbNameField.getText());
+        try {
+            config.getDatabase().setDbPort(Integer.parseInt(dbPortField.getText().trim()));
+        } catch (NumberFormatException ignored) {
+            // keep previous port if input is not a valid number
+        }
         config.getDatabase().setUsername(dbUsernameField.getText());
         config.getDatabase().setPassword(dbPasswordField.getText());
         
@@ -422,30 +431,36 @@ public class MainController {
         // Success
         task.setOnSucceeded(e -> {
             JobResult result = task.getValue();
+            currentTask = null;
             displayResult(result);
-            updateJobRunningState(false);
-            updateLastJobStatus(result);
             progressBar.progressProperty().unbind();
             statusLabel.textProperty().unbind();
+            updateJobRunningState(false);
+            updateJobButtonsState();
+            updateLastJobStatus(result);
         });
         
         // Failure
         task.setOnFailed(e -> {
             Throwable ex = task.getException();
             logger.error("Job failed", ex);
-            logMessage("ERROR: " + ex.getMessage());
-            showError("Job Failed", I18nUtil.get("error.job.failed", ex.getMessage()));
-            updateJobRunningState(false);
+            currentTask = null;
+            logMessage("ERROR: " + (ex != null ? ex.getMessage() : "unknown error"));
             progressBar.progressProperty().unbind();
             statusLabel.textProperty().unbind();
+            updateJobRunningState(false);
+            updateJobButtonsState();
+            showError("Job Failed", I18nUtil.get("error.job.failed", ex != null ? ex.getMessage() : "unknown error"));
         });
         
         // Cancelled
         task.setOnCancelled(e -> {
+            currentTask = null;
             logMessage("Job cancelled by user");
-            updateJobRunningState(false);
             progressBar.progressProperty().unbind();
             statusLabel.textProperty().unbind();
+            updateJobRunningState(false);
+            updateJobButtonsState();
         });
     }
     
