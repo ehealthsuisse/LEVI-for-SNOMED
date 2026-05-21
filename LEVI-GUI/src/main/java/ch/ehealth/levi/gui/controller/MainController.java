@@ -27,6 +27,8 @@ import java.sql.Connection;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Main controller for the LEVI GUI application
@@ -95,7 +97,7 @@ public class MainController {
     
     // State
     private Task<JobResult> currentTask;
-    private String selectedJobType;
+    private final List<String> selectedJobTypes = new ArrayList<>();
     private long jobStartTime;
     private GuiInputStream guiInputStream;
     private static final InputStream ORIGINAL_STDIN = System.in;
@@ -381,14 +383,18 @@ public class MainController {
     }
     
     private void selectJob(String jobType) {
-        this.selectedJobType = jobType;
-        logger.info("Selected job: {}", jobType);
+        if (selectedJobTypes.contains(jobType)) {
+            selectedJobTypes.remove(jobType);
+        } else {
+            selectedJobTypes.add(jobType);
+        }
+        logger.info("Job queue: {}", selectedJobTypes);
         updateJobButtonsState();
     }
     
     private void startJob() {
-        if (selectedJobType == null) {
-            showWarning("No Job Selected", "Please select a job to run.");
+        if (selectedJobTypes.isEmpty()) {
+            showWarning("No Job Selected", "Please select at least one job to run.");
             return;
         }
         
@@ -400,70 +406,67 @@ public class MainController {
             return;
         }
         
-        // Create task based on job type
+        List<String> queue = new ArrayList<>(selectedJobTypes);
+        updateJobRunningState(true);
+        startRuntimeUpdater();
+        runNextJob(queue, 0);
+    }
+
+    private void runNextJob(List<String> queue, int index) {
+        String jobType = queue.get(index);
         Conf conf = configService.toConf();
-        
-        switch (selectedJobType) {
-            case "overview":
-                currentTask = jobService.createOverviewTask(conf);
-                break;
-            case "desc-add":
-                currentTask = jobService.createDescAdditionsTask(conf);
-                break;
-            case "desc-inact":
-                currentTask = jobService.createDescInactivationsTask(conf);
-                break;
-            case "translate-delta":
-                currentTask = jobService.createTranslateDeltaTask(conf);
-                break;
-            case "eszett-check":
-                currentTask = jobService.createEszettCheckTask(conf);
-                break;
-            case "not-published":
-                currentTask = jobService.createNotPublishedTask(conf);
-                break;
+
+        Task<JobResult> task;
+        switch (jobType) {
+            case "overview":        task = jobService.createOverviewTask(conf);          break;
+            case "desc-add":        task = jobService.createDescAdditionsTask(conf);     break;
+            case "desc-inact":      task = jobService.createDescInactivationsTask(conf); break;
+            case "translate-delta": task = jobService.createTranslateDeltaTask(conf);   break;
+            case "eszett-check":    task = jobService.createEszettCheckTask(conf);       break;
+            case "not-published":   task = jobService.createNotPublishedTask(conf);      break;
             default:
-                showError("Unknown Job", "Unknown job type: " + selectedJobType);
+                showError("Unknown Job", "Unknown job type: " + jobType);
+                updateJobRunningState(false);
+                updateJobButtonsState();
                 return;
         }
-        
-        // Set up task handlers
-        setupTaskHandlers(currentTask);
-        
+
+        currentTask = task;
+
         // Switch to Log tab and log start
         String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-        logMessage("\n[" + ts + "] ▶ Starting: " + selectedJobType);
+        if (queue.size() > 1) {
+            logMessage("\n[" + ts + "] ▶ Starting job " + (index + 1) + "/" + queue.size() + ": " + jobType);
+        } else {
+            logMessage("\n[" + ts + "] ▶ Starting: " + jobType);
+        }
         resultsTabPane.getSelectionModel().select(1);
-        // Defer scroll so the tab selection is applied before we scroll
         Platform.runLater(() -> mainScrollPane.setVvalue(1.0));
 
         // Redirect System.in so stdin prompts from LEVI core are handled by the GUI
         guiInputStream = new GuiInputStream(this::showLogInputPrompt);
         System.setIn(guiInputStream);
 
-        // Start task
         jobStartTime = System.currentTimeMillis();
-        Thread thread = new Thread(currentTask);
+        setupTaskHandlers(task, queue, index);
+
+        Thread thread = new Thread(task);
         thread.setDaemon(true);
         thread.start();
-        
-        // Update UI
-        updateJobRunningState(true);
-        startRuntimeUpdater();
     }
     
-    private void setupTaskHandlers(Task<JobResult> task) {
+    private void setupTaskHandlers(Task<JobResult> task, List<String> queue, int index) {
         // Pipe task status messages to log area in real time
         task.messageProperty().addListener((obs, oldMsg, newMsg) -> {
             if (newMsg != null && !newMsg.isEmpty()) {
                 logMessage("  " + newMsg);
             }
         });
-        
+
         // Progress
         progressBar.progressProperty().bind(task.progressProperty());
         statusLabel.textProperty().bind(task.messageProperty());
-        
+
         // Success
         task.setOnSucceeded(e -> {
             JobResult result = task.getValue();
@@ -475,11 +478,17 @@ public class MainController {
             displayResult(result);
             progressBar.progressProperty().unbind();
             statusLabel.textProperty().unbind();
-            updateJobRunningState(false);
-            updateJobButtonsState();
             updateLastJobStatus(result);
+            if (index + 1 < queue.size()) {
+                // Chain to next job in queue
+                startRuntimeUpdater();
+                Platform.runLater(() -> runNextJob(queue, index + 1));
+            } else {
+                updateJobRunningState(false);
+                updateJobButtonsState();
+            }
         });
-        
+
         // Failure
         task.setOnFailed(e -> {
             Throwable ex = task.getException();
@@ -493,7 +502,7 @@ public class MainController {
             updateJobButtonsState();
             showError("Job Failed", I18nUtil.get("error.job.failed", ex != null ? ex.getMessage() : "unknown error"));
         });
-        
+
         // Cancelled
         task.setOnCancelled(e -> {
             currentTask = null;
@@ -547,16 +556,25 @@ public class MainController {
     }
     
     private void updateJobButtonsState() {
-        boolean jobSelected = selectedJobType != null;
-        startButton.setDisable(!jobSelected || currentTask != null);
-        
-        // Highlight selected job button
-        overviewButton.setStyle(selectedJobType != null && selectedJobType.equals("overview") ? "-fx-background-color: #4CAF50;" : "");
-        descAddButton.setStyle(selectedJobType != null && selectedJobType.equals("desc-add") ? "-fx-background-color: #4CAF50;" : "");
-        descInactButton.setStyle(selectedJobType != null && selectedJobType.equals("desc-inact") ? "-fx-background-color: #4CAF50;" : "");
-        translateDeltaButton.setStyle(selectedJobType != null && selectedJobType.equals("translate-delta") ? "-fx-background-color: #4CAF50;" : "");
-        eszettCheckButton.setStyle(selectedJobType != null && selectedJobType.equals("eszett-check") ? "-fx-background-color: #4CAF50;" : "");
-        notPublishedButton.setStyle(selectedJobType != null && selectedJobType.equals("not-published") ? "-fx-background-color: #4CAF50;" : "");
+        startButton.setDisable(selectedJobTypes.isEmpty() || currentTask != null);
+
+        updateJobButton(overviewButton,       "Translation Overview",    "overview");
+        updateJobButton(descAddButton,        "New Descriptions",        "desc-add");
+        updateJobButton(descInactButton,      "Inactivations",           "desc-inact");
+        updateJobButton(translateDeltaButton, "Complete Delta",          "translate-delta");
+        updateJobButton(eszettCheckButton,    "Eszett Check",            "eszett-check");
+        updateJobButton(notPublishedButton,   "Unpublished Translations", "not-published");
+    }
+
+    private void updateJobButton(Button btn, String baseLabel, String jobType) {
+        int idx = selectedJobTypes.indexOf(jobType);
+        if (idx >= 0) {
+            btn.setText(baseLabel + " [" + (idx + 1) + "]");
+            btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+        } else {
+            btn.setText(baseLabel);
+            btn.setStyle("");
+        }
     }
     
     private void updateJobRunningState(boolean running) {
