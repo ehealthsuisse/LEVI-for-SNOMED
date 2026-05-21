@@ -2,6 +2,7 @@ package ch.ehealth.levi.gui.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import translation.check.CompareManager;
 
 /**
  * Model class to hold job execution results
@@ -159,7 +160,14 @@ public class JobResult {
     public void setWarnings(List<LogEntry> warnings) {
         this.warnings = warnings;
     }
-    
+
+    /** The CompareManager used by this job; may be null. Set when the manager's
+     *  loaded data can be reused by a subsequent job (e.g. not-published after translate-delta). */
+    private transient CompareManager manager;
+
+    public CompareManager getManager() { return manager; }
+    public void setManager(CompareManager manager) { this.manager = manager; }
+
     /**
      * Entry for result tables
      */

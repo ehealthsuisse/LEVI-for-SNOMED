@@ -100,6 +100,19 @@ public class CompareManager {
 		writer.writeToFile(destination + "\\DeltaNotPublishedTranslations.tsv", comparator.generateDeltaOfNotPublishedTranslations());
 		
 	}
+
+	/**
+	 * Like {@link #runDeltaNotPublishedTranslations} but skips loading the current
+	 * file because its data (NEW_TRANSLATION_CURRENT, TRANSLATION_INACTIVATION_CURRENT)
+	 * is already present in the resultCollector from a preceding job (e.g. translate-delta).
+	 * Only the previous file is loaded, avoiding a second in-memory copy of the large XLS.
+	 */
+	public void runDeltaNotPublishedTranslationsReusingCurrent(String pathPrevious, String destination)
+			throws IOException, ClassNotFoundException, SQLException {
+		reader.readFile(pathPrevious);
+		writer.writeToFile(destination + "\\DeltaNotPublishedTranslations.tsv",
+				comparator.generateDeltaOfNotPublishedTranslations());
+	}
 	
 	public void runCheckDuplicateTerms(String destination) 
 	        throws IOException, ClassNotFoundException, SQLException {

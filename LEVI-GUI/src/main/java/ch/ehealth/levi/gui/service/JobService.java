@@ -37,6 +37,7 @@ public class JobService {
                     updateMessage("Creating overview...");
                     updateProgress(90, 100);
                     
+                    result.setManager(manager);
                     result.setSuccessful(true);
                     updateProgress(100, 100);
                 } catch (Exception e) {
@@ -79,6 +80,7 @@ public class JobService {
                     updateMessage("Generating additions delta...");
                     updateProgress(90, 100);
                     
+                    result.setManager(manager);
                     result.setSuccessful(true);
                     updateProgress(100, 100);
                 } catch (Exception e) {
@@ -120,6 +122,7 @@ public class JobService {
                     updateMessage("Generating inactivations delta...");
                     updateProgress(90, 100);
                     
+                    result.setManager(manager);
                     result.setSuccessful(true);
                     updateProgress(100, 100);
                 } catch (Exception e) {
@@ -164,6 +167,7 @@ public class JobService {
                     updateMessage("Generating complete delta...");
                     updateProgress(90, 100);
                     
+                    result.setManager(manager);
                     result.setSuccessful(true);
                     updateProgress(100, 100);
                 } catch (Exception e) {
@@ -223,6 +227,16 @@ public class JobService {
      * Creates a task for finding not published translations
      */
     public Task<JobResult> createNotPublishedTask(Conf conf) {
+        return createNotPublishedTask(conf, null);
+    }
+
+    /**
+     * Creates a task for finding not published translations, optionally reusing a
+     * CompareManager that already has the current file's data loaded (e.g. from a
+     * preceding translate-delta job). When a preloaded manager is provided, only
+     * the previous file is loaded, avoiding a redundant second pass over the large XLS.
+     */
+    public Task<JobResult> createNotPublishedTask(Conf conf, CompareManager preloadedManager) {
         return new Task<JobResult>() {
             @Override
             protected JobResult call() throws Exception {
@@ -233,18 +247,26 @@ public class JobService {
                 JobResult result = new JobResult("not-published");
                 
                 try {
-                    CompareManager manager = new CompareManager(conf);
-                    updateMessage("Reading current file...");
-                    updateProgress(30, 100);
-                    
-                    updateMessage("Reading previous file...");
-                    updateProgress(50, 100);
-                    
-                    manager.runDeltaNotPublishedTranslations(
-                        conf.getFilePathCurrent(), 
-                        conf.getFilePathPrevious(), 
-                        conf.getDestination()
-                    );
+                    if (preloadedManager != null) {
+                        // Current file already loaded — only read the previous file.
+                        updateMessage("Reusing loaded data; reading previous file...");
+                        updateProgress(50, 100);
+                        preloadedManager.runDeltaNotPublishedTranslationsReusingCurrent(
+                            conf.getFilePathPrevious(),
+                            conf.getDestination()
+                        );
+                    } else {
+                        CompareManager manager = new CompareManager(conf);
+                        updateMessage("Reading current file...");
+                        updateProgress(30, 100);
+                        updateMessage("Reading previous file...");
+                        updateProgress(50, 100);
+                        manager.runDeltaNotPublishedTranslations(
+                            conf.getFilePathCurrent(),
+                            conf.getFilePathPrevious(),
+                            conf.getDestination()
+                        );
+                    }
                     
                     updateMessage("Finding unpublished translations...");
                     updateProgress(90, 100);

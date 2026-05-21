@@ -409,10 +409,10 @@ public class MainController {
         List<String> queue = new ArrayList<>(selectedJobTypes);
         updateJobRunningState(true);
         startRuntimeUpdater();
-        runNextJob(queue, 0);
+        runNextJob(queue, 0, null);
     }
 
-    private void runNextJob(List<String> queue, int index) {
+    private void runNextJob(List<String> queue, int index, JobResult prevResult) {
         String jobType = queue.get(index);
         Conf conf = configService.toConf();
 
@@ -423,7 +423,13 @@ public class MainController {
             case "desc-inact":      task = jobService.createDescInactivationsTask(conf); break;
             case "translate-delta": task = jobService.createTranslateDeltaTask(conf);   break;
             case "eszett-check":    task = jobService.createEszettCheckTask(conf);       break;
-            case "not-published":   task = jobService.createNotPublishedTask(conf);      break;
+            case "not-published": {
+                // Reuse the manager from the previous job if it already loaded the current file
+                translation.check.CompareManager preloaded =
+                        (prevResult != null) ? prevResult.getManager() : null;
+                task = jobService.createNotPublishedTask(conf, preloaded);
+                break;
+            }
             default:
                 showError("Unknown Job", "Unknown job type: " + jobType);
                 updateJobRunningState(false);
@@ -482,7 +488,7 @@ public class MainController {
             if (index + 1 < queue.size()) {
                 // Chain to next job in queue
                 startRuntimeUpdater();
-                Platform.runLater(() -> runNextJob(queue, index + 1));
+                Platform.runLater(() -> runNextJob(queue, index + 1, result));
             } else {
                 updateJobRunningState(false);
                 updateJobButtonsState();
