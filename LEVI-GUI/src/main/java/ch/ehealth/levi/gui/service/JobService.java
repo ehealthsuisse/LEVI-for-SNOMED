@@ -73,6 +73,9 @@ public class JobService {
                     
                     manager.runDeltaDescAdditions(conf.getFilePathCurrent(), conf.getDestination());
                     
+                    result.setAdditionsCount(manager.getLastAdditionsCount());
+                    result.setChangesCount(manager.getLastChangesCount());
+
                     updateMessage("Generating additions delta...");
                     updateProgress(90, 100);
                     
@@ -112,6 +115,8 @@ public class JobService {
                     
                     manager.runDeltaDescInactivations(conf.getFilePathCurrent(), conf.getDestination());
                     
+                    result.setInactivationsCount(manager.getLastInactivationsCount());
+
                     updateMessage("Generating inactivations delta...");
                     updateProgress(90, 100);
                     
@@ -151,6 +156,11 @@ public class JobService {
                     
                     manager.runGenerateDelta(conf.getFilePathCurrent(), conf.getDestination());
                     
+                    result.setAdditionsCount(manager.getLastAdditionsCount());
+                    result.setChangesCount(manager.getLastChangesCount());
+                    result.setReactivationsCount(manager.getLastReactivationsCount());
+                    result.setInactivationsCount(manager.getLastInactivationsCount());
+
                     updateMessage("Generating complete delta...");
                     updateProgress(90, 100);
                     
