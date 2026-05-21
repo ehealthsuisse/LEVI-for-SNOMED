@@ -1,5 +1,17 @@
 package translation.check;
 
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.opencsv.CSVParser;
+import com.opencsv.CSVParserBuilder;
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderBuilder;
+
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -7,17 +19,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-
-import com.opencsv.CSVParser;
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
-
 public class FileReaderUtil {
+
+    private static final Logger logger = LoggerFactory.getLogger(FileReaderUtil.class);
 
 	private ResultCollector resultCollector;
 
@@ -47,17 +51,16 @@ public class FileReaderUtil {
 			try (FileInputStream fis = new FileInputStream(filePath);
 					Workbook workbook = filePath.endsWith(".xlsx") ? new XSSFWorkbook(fis) : new HSSFWorkbook(fis)) {
 
-				System.out.println("Processing Excel file: " + filePath);
+				logger.info("Processing Excel file: {}", filePath);
 				processExcel(workbook, releaseType);
 
 			} catch (IOException e) {
-				System.err.println("Error reading Excel file.");
-				e.printStackTrace();
+				logger.error("Error reading Excel file: {}", filePath, e);
 			}
 
 		} else if ("JSON".equals(fileType)) {
             // Read JSON file using ValueSetProcessor
-            System.out.println("Processing FHIR JSON file: " + filePath);
+            logger.info("Processing FHIR JSON file: {}", filePath);
             try (FileReader fileReader = new FileReader(filePath)) {
                 StringBuilder jsonContent = new StringBuilder();
                 int ch;
@@ -68,8 +71,7 @@ public class FileReaderUtil {
                 FhirJsonValueSetProcessor processor = new FhirJsonValueSetProcessor(resultCollector);
                 processor.processValueSet(jsonContent.toString());
             } catch (IOException e) {
-                System.err.println("Error reading JSON file.");
-                e.printStackTrace();
+                logger.error("Error reading JSON file: {}", filePath, e);
             }
 
         } else { // TODO: need solution for separator for CSV/TSV files
@@ -87,14 +89,15 @@ public class FileReaderUtil {
 					new SimpleOverview(csvReader, resultCollector).process(); //TODO: Implement Termspace CSV processing
 					break;
 				case "Additions.tsv":
+					logger.info("Processing SNOMED International `Additions.tsv` file...");
 					new SiAdditionsCsvProcessor(csvReader, resultCollector).process();
 					break;
 				case "Inactivations.tsv":
-					System.out.println("Processing Termspace `Inactivations.tsv` file...");
-					new TermspaceInactivationsCsvProcessor(csvReader, resultCollector).process();
+					logger.info("Processing SNOMED International `Inactivations.tsv` file...");
+					new SiInactivationsCSVProcessor(csvReader, resultCollector).process();
 					break;
 				case ".simpleOverview.tsv":
-					System.out.println("Processing `.simpleOverview.tsv` file...");
+					logger.info("Processing `.simpleOverview.tsv` file...");
 					new SimpleOverview(csvReader, resultCollector).process();
 					break;
 //				case ".txt": TODO: Is this needed?
@@ -102,17 +105,16 @@ public class FileReaderUtil {
 //					processDescriptionRF2File(csvReader);
 //					break;
  				default:
-					System.out.println(fileType + "Not recognized. Please check the file type.");
-					break;
+					logger.warn("{} Not recognized. Please check the file type.", fileType);
+					System.exit(0);
 				}
 
 
 
 			} catch (IOException e) {
-				e.printStackTrace();
+				logger.error("Error reading CSV file: {}", filePath, e);
 			} catch (NoSuchElementException e) {
-				System.err.println("The CSV is malformed or has syntax issues.");
-				System.err.println("Please delete all columns after 'Target acceptable' in the CSV and try again.");
+				logger.error("The CSV is malformed or has syntax issues. Please delete all columns after 'Target acceptable' in the CSV and try again.", e);
 			}
 		}
 	}
@@ -169,7 +171,7 @@ public class FileReaderUtil {
 	}
 
 	private void processExcel(Workbook workbook, String releaseType) throws IOException {
-		System.out.println("Processing additions via DescriptionAdditionLoader...");
+		logger.info("Processing additions via DescriptionAdditionLoader...");
 		int numberOfSheets = workbook.getNumberOfSheets();
 		for (int i = 0; i < numberOfSheets; i++) {
 			Sheet sheet = workbook.getSheetAt(i);
@@ -177,13 +179,13 @@ public class FileReaderUtil {
 			switch (sheetName) {
 
 			case "Description Additions":
-				System.out.println("Starting processing description additions");
+				logger.info("Starting processing description additions");
 				new DescriptionAdditionLoader().loadAndInsertExcel(sheet, resultCollector, releaseType);
 
 				break;
 
 			case "Description Inactivations":
-				System.out.println("Starting processing description inactivations");
+				logger.info("Starting processing description inactivations");
 				new DescriptionInactivationLoader().loadAndInsertExcel(sheet, resultCollector, releaseType);
 
 				break;

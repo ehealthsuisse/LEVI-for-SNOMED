@@ -8,7 +8,12 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class FileWriterUtil {
+
+    private static final Logger logger = LoggerFactory.getLogger(FileWriterUtil.class);
 	
 	public void writeToFile(String filePath, List<List<String>> data) throws IOException {
 		File file = new File(filePath);
@@ -19,5 +24,6 @@ public class FileWriterUtil {
 				writer.newLine();
 			}
 		}
+		logger.info("File written: {} ({} lines)", filePath, data == null ? 0 : data.size());
 	}
 }

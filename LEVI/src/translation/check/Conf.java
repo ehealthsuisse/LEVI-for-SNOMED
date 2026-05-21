@@ -81,8 +81,6 @@ public class Conf {
 
     public Conf() {
 		// Default constructor
-    	this.countryCode = "CH";
-        this.transformEszett = true; // CH-Default
 	}
        
     public void setFilePathCurrent(String filePathCurrent) {
