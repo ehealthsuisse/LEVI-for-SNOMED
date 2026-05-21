@@ -86,8 +86,27 @@ public class ResultCollector {
 				languageRefSet4, acceptability4, languageRefSet5, acceptability5, notes));
 		addEntry("TRANSLATION_CHANGES", L);
 	}
-
 	
+	public void setFullTranslationReactivation(String description_ID, String preferredTerm, String term, String caseSignificance,
+			String type, String languageRefSet1, String acceptability1, String languageRefSet2, String acceptability2, String languageRefSet3,
+			String acceptability3, String languageRefSet4, String acceptability4, String languageRefSet5, String acceptability5, String notes) {
+		List<String> L = new ArrayList<>(Arrays.asList(description_ID, preferredTerm, term, caseSignificance, type,
+				languageRefSet1, acceptability1, languageRefSet2, acceptability2, languageRefSet3, acceptability3,
+				languageRefSet4, acceptability4, languageRefSet5, acceptability5, notes));
+		addEntry("TRANSLATION_REACTIVATION", L);
+	}
+
+	public void setDuplicateTerm(String conceptId1, String descriptionId1, String languageCode1,
+	        String typeId1, String term, String typeId2, String languageCode2,
+	        String descriptionId2, String conceptId2, String sameConcept) {
+	    List<String> entry = new ArrayList<>(Arrays.asList(
+	        conceptId1, descriptionId1, languageCode1, typeId1,
+	        term,
+	        typeId2, languageCode2, descriptionId2, conceptId2, sameConcept
+	    ));
+	    addEntry("DUPLICATE_TERM", entry);
+	}
+
 	
 	public List<ResultCollector> getEntriesByType(String type) {
 		return entries.stream().filter(e -> e.getType().equals(type)).collect(Collectors.toList());

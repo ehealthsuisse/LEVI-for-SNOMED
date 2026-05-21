@@ -12,6 +12,8 @@ public class SimpleOverview extends CsvProcessor{
 	
 	public SimpleOverview(CSVReader csvReader, ResultCollector collector) {
         super(csvReader);
+        // Assign the injected collector so it's available in process()
+        this.collector = collector;
     }
 
     @Override
@@ -22,6 +24,11 @@ public class SimpleOverview extends CsvProcessor{
 		} catch (IOException | CsvException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}
+		
+		// defensive: if reading failed rows may be null
+		if (rows == null || rows.isEmpty()) {
+			return;
 		}
 		
 		boolean isFirstRow = true;
