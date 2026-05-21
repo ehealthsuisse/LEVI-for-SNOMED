@@ -9,6 +9,7 @@
 
   <build>
     <sourceDirectory>src</sourceDirectory>
+    <testSourceDirectory>src/test/java</testSourceDirectory>
       <plugins>
 
       <plugin>
@@ -18,7 +19,17 @@
         <configuration>
           <source>17</source>
           <target>17</target>
+          <!-- Exclude test sources from main compilation (src/test/java is inside src/) -->
+          <excludes>
+            <exclude>test/**</exclude>
+          </excludes>
         </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.2</version>
       </plugin>
 
       <plugin>
@@ -110,6 +121,26 @@
 	  <artifactId>slf4j-api</artifactId>
 	  <version>2.0.7</version>
 	</dependency>
+
+    <!-- Test Dependencies -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.5.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>5.5.0</version>
+      <scope>test</scope>
+    </dependency>
 
   </dependencies>
   
