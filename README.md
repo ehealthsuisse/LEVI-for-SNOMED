@@ -116,6 +116,52 @@ java -jar SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar ^
 
 ---
 
+## Unit Testing
+
+Unit tests are implemented for the LEVI core module in `LEVI/src/test/java/translation/check`.
+
+### Run tests
+
+From the repository root:
+
+```bash
+mvn -f LEVI/pom.xml test
+```
+
+Or from inside the LEVI module:
+
+```bash
+cd LEVI
+mvn test
+```
+
+### Generate and view coverage
+
+The LEVI module is configured with JaCoCo. After running tests, coverage artifacts are generated in:
+
+- `LEVI/target/jacoco.exec`
+- `LEVI/target/site/jacoco/index.html`
+
+### Currently included test classes
+
+- `ConfTest`
+- `ComparatorTest`
+- `FileReaderUtilTest`
+- `RegexValidatorTest`
+- `ResultCollectorTest`
+
+Current suite size: 113 tests in total.
+
+### Scope of existing tests
+
+- Configuration parsing and default handling
+- Comparator behavior and translation matching logic
+- File reader parsing helpers
+- Regex validation rules
+- ResultCollector add/get/reset behavior
+
+---
+
 ## Architecture / Technical Overview
 
 LEVI consists of several modular components:
