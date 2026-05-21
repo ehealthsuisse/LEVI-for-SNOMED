@@ -10,6 +10,7 @@ public class CompareManager {
 	private final FileReaderUtil reader;
 	private final FileWriterUtil writer;
 	private final Comparator comparator;
+	private final BatchExportService batchExportService;
 
 	// Counts populated after each run* call
 	private int lastAdditionsCount;
@@ -18,10 +19,11 @@ public class CompareManager {
 	private int lastInactivationsCount;
 
     public CompareManager(Conf conf) {
-        this.resultCollector = new ResultCollector();
-        this.reader = new FileReaderUtil(resultCollector);
-        this.writer = new FileWriterUtil();
-        this.comparator = new Comparator(resultCollector, conf);
+        this.resultCollector   = new ResultCollector();
+        this.reader            = new FileReaderUtil(resultCollector);
+        this.writer            = new FileWriterUtil();
+        this.comparator        = new Comparator(resultCollector, conf);
+        this.batchExportService = new BatchExportService();
     }
 
 	public int getLastAdditionsCount()     { return lastAdditionsCount; }
@@ -56,28 +58,43 @@ public class CompareManager {
 		writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", inactivations);
 	}
 	
+	/**
+	 * Generates all four delta datasets (additions, changes, inactivations,
+	 * reactivations), updates the {@code lastXxxCount} fields, then delegates
+	 * to {@link BatchExportService} which groups concepts by their combination
+	 * of change types and writes aligned, optionally batch-split output files.
+	 *
+	 * <p><em>Note:</em> {@link Comparator#generateDescriptionAdditionAndChangesDelta()}
+	 * must be called first because it populates the description→concept ID mapping
+	 * in {@link ResultCollector} that is required for resolving concept IDs in the
+	 * changes and reactivations deltas.</p>
+	 */
 	public void runGenerateDelta(String path, String destination) throws ClassNotFoundException, IOException, SQLException {
 		reader.readFile(path);
 
+		// Additions — also populates TRANSLATION_CHANGES, TRANSLATION_REACTIVATION,
+		// and the description→concept ID mapping in ResultCollector.
 		List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
 		lastAdditionsCount = Math.max(0, additions.size() - 1);
-		writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", additions);
 
-		if(resultCollector.containsType("TRANSLATION_CHANGES")) {
-			List<List<String>> changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
+		List<List<String>> changes = null;
+		if (resultCollector.containsType("TRANSLATION_CHANGES")) {
+			changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
 			lastChangesCount = Math.max(0, changes.size() - 1);
-			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", changes);
 		}
 
-		if(resultCollector.containsType("TRANSLATION_REACTIVATION")) {
-			List<List<String>> reactivations = comparator.generateDescriptionChangesDelta("TRANSLATION_REACTIVATION");
+		List<List<String>> reactivations = null;
+		if (resultCollector.containsType("TRANSLATION_REACTIVATION")) {
+			reactivations = comparator.generateDescriptionChangesDelta("TRANSLATION_REACTIVATION");
 			lastReactivationsCount = Math.max(0, reactivations.size() - 1);
-			writer.writeToFile(destination + "\\DeltaDescReactivation.tsv", reactivations);
 		}
 
 		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
 		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
-		writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", inactivations);
+
+		// Delegate all file writing to BatchExportService (group-based aligned output)
+		batchExportService.export(additions, changes, inactivations, reactivations,
+				resultCollector, destination);
 	}
 	
 	public void runCheckEszettInExtension(String destination) throws ClassNotFoundException, IOException, SQLException {

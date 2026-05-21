@@ -2,13 +2,22 @@ package translation.check;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ResultCollector {
 	private String type;
 	private List<String> data;
 	private List<ResultCollector> entries = new ArrayList<>();
+
+	/**
+	 * Maps description ID → concept ID for TRANSLATION_CHANGES and
+	 * TRANSLATION_REACTIVATION entries, enabling {@link BatchExportService} to
+	 * resolve the owning concept when those entry types do not embed the concept ID.
+	 */
+	private final Map<String, String> descriptionToConceptId = new HashMap<>();
 
 	public ResultCollector(String type, List<String> data) {
 		this.type = type;
@@ -159,8 +168,27 @@ public class ResultCollector {
 		return data;
 	}
 
+	/**
+	 * Records that the given description belongs to the given concept.
+	 * Called by {@link Comparator} when a change or reactivation entry is added.
+	 */
+	public void addDescriptionToConceptMapping(String descriptionId, String conceptId) {
+		if (descriptionId != null && conceptId != null) {
+			descriptionToConceptId.put(descriptionId, conceptId);
+		}
+	}
+
+	/**
+	 * Returns the concept ID for the given description ID, or {@code null} if
+	 * no mapping has been recorded.
+	 */
+	public String getConceptIdForDescription(String descriptionId) {
+		return descriptionToConceptId.get(descriptionId);
+	}
+
 	public void clear() {
 		entries.clear();
+		descriptionToConceptId.clear();
 	}
 
 }
