@@ -38,4 +38,6 @@ if [ ! -f "$JAR_FILE" ]; then
 fi
 
 # Launch the application
-java -jar "$JAR_FILE"
+java -Xdock:icon="$SCRIPT_DIR/icons/android-chrome-512x512.png" \
+     -Xdock:name="LEVI for SNOMED" \
+     -jar "$JAR_FILE"
