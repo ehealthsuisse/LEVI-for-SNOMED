@@ -19,10 +19,14 @@
         </encoder>
     </appender>
     
+    <!-- GUI Appender (pipes LEVI core logs to the in-app log area) -->
+    <appender name="GUI" class="ch.ehealth.levi.gui.util.GuiLogAppender"/>
+
     <!-- Root Logger -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
+        <appender-ref ref="GUI"/>
     </root>
     
     <!-- LEVI GUI specific logging -->

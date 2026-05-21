@@ -59,21 +59,39 @@ public class AppConfig {
     }
     
     public static class DatabaseConfig {
-        @JsonProperty("url")
-        private String url = "jdbc:mysql://localhost:3306/snomed";
+        @JsonProperty("dbName")
+        private String dbName = "SCT:CH_Dec25";
+
+        @JsonProperty("dbPort")
+        private int dbPort = 3306;
         
         @JsonProperty("username")
         private String username = "root";
         
         @JsonProperty("password")
         private String password = "";
-        
+
+        /** Returns the full JDBC URL constructed from host, port and DB name. */
+        @com.fasterxml.jackson.annotation.JsonIgnore
         public String getUrl() {
-            return url;
+            return "jdbc:mysql://localhost:" + dbPort + "/" + dbName
+                    + "?useUnicode=true&characterEncoding=UTF-8";
         }
-        
-        public void setUrl(String url) {
-            this.url = url;
+
+        public String getDbName() {
+            return dbName;
+        }
+
+        public void setDbName(String dbName) {
+            this.dbName = dbName;
+        }
+
+        public int getDbPort() {
+            return dbPort;
+        }
+
+        public void setDbPort(int dbPort) {
+            this.dbPort = dbPort;
         }
         
         public String getUsername() {

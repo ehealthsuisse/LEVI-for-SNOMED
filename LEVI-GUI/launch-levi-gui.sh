@@ -33,11 +33,25 @@ if ! java --list-modules 2>/dev/null | grep -q javafx; then
     echo "Recommended: Install Java with JavaFX using SDKMAN: sdk install java 17.0.13.fx-zulu"
 fi
 
-# Check if JAR file exists
+# Check if JAR file exists; if not, build automatically
 if [ ! -f "$JAR_FILE" ]; then
-    echo "Error: JAR file not found at $JAR_FILE"
-    echo "Please build the application first using: mvn clean package"
-    exit 1
+    echo "JAR not found. Building application with Maven..."
+    
+    # Ensure Maven is available
+    if ! command -v mvn &> /dev/null; then
+        echo "Error: Maven (mvn) is not installed or not in PATH."
+        echo "Please install Maven 3.6+ and try again."
+        exit 1
+    fi
+    
+    pushd "$SCRIPT_DIR" > /dev/null
+    if ! mvn clean package; then
+        echo "Error: Build failed. Please check the output above."
+        popd > /dev/null
+        exit 1
+    fi
+    popd > /dev/null
+    echo "Build successful."
 fi
 
 # Launch the application

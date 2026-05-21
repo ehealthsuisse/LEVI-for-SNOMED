@@ -57,8 +57,10 @@ public class ConfigService {
         objectMapper.writeValue(file, configToSave);
         logger.info("Configuration saved to: {}", file.getAbsolutePath());
         
-        // Also save as last config
-        saveLastConfig();
+        // Also save as last config (only if this isn't already the last-config file)
+        if (!file.toPath().equals(lastConfigPath)) {
+            saveLastConfig();
+        }
     }
     
     /**
@@ -80,8 +82,10 @@ public class ConfigService {
         this.currentConfig = loadedConfig;
         logger.info("Configuration loaded from: {}", file.getAbsolutePath());
         
-        // Save as last config
-        saveLastConfig();
+        // Save as last config (only if this isn't already the last-config file)
+        if (!file.toPath().equals(lastConfigPath)) {
+            saveLastConfig();
+        }
     }
     
     /**
@@ -170,8 +174,8 @@ public class ConfigService {
      * @return validation error message or null if valid
      */
     public String validateConfig() {
-        if (currentConfig.getDatabase().getUrl() == null || currentConfig.getDatabase().getUrl().isEmpty()) {
-            return "Database URL is required";
+        if (currentConfig.getDatabase().getDbName() == null || currentConfig.getDatabase().getDbName().isEmpty()) {
+            return "Database name is required";
         }
         
         if (currentConfig.getPaths().getCurrentFile() == null || currentConfig.getPaths().getCurrentFile().isEmpty()) {

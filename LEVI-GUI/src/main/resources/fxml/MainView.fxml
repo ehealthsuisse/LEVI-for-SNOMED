@@ -32,7 +32,7 @@
     </top>
     
     <center>
-        <ScrollPane fitToWidth="true" fitToHeight="true">
+        <ScrollPane fx:id="mainScrollPane" fitToWidth="true">
             <VBox spacing="15" style="-fx-padding: 20;">
                 <!-- Configuration Section -->
                 <TitledPane text="Configuration" expanded="true" collapsible="false">
@@ -46,15 +46,18 @@
                                 <ColumnConstraints minWidth="100"/>
                             </columnConstraints>
                             
-                            <Label text="DB URL:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                            <TextField fx:id="dbUrlField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <Label text="DB Name:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <TextField fx:id="dbNameField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
                             <Button fx:id="dbTestButton" text="Test" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
                             
-                            <Label text="Username:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                            <TextField fx:id="dbUsernameField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            <Label text="Port:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="dbPortField" prefWidth="80" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
                             
-                            <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-                            <PasswordField fx:id="dbPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="2"/>
+                            <Label text="Username:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <TextField fx:id="dbUsernameField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                            
+                            <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                            <PasswordField fx:id="dbPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="3" GridPane.columnSpan="2"/>
                         </GridPane>
                         
                         <Separator/>
@@ -169,6 +172,16 @@
                                              style="-fx-font-family: 'Courier New';"
                                              wrapText="true"/>
                                 </ScrollPane>
+                                <!-- Input prompt – shown only when the job awaits stdin -->
+                                <HBox fx:id="logInputBox" spacing="10" alignment="CENTER_LEFT"
+                                      visible="false" managed="false"
+                                      style="-fx-padding: 8; -fx-background-color: #fff3cd; -fx-border-color: #ffc107; -fx-border-width: 1 0 0 0;">
+                                    <Label text="⌨ Input required:" style="-fx-font-weight: bold;"/>
+                                    <TextField fx:id="logInputField" HBox.hgrow="ALWAYS"
+                                               promptText="Type your answer, then press Enter or Submit"
+                                               onAction="#submitLogInput"/>
+                                    <Button text="Submit" onAction="#submitLogInput"/>
+                                </HBox>
                             </VBox>
                         </Tab>
                     </TabPane>
