@@ -5,7 +5,7 @@ REM This script launches the LEVI GUI application
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "JAR_FILE=%SCRIPT_DIR%target\levi-gui-1.0.0.jar"
+set "JAR_FILE=%SCRIPT_DIR%target\levi-gui-2.0.0.jar"
 set "JAVAFX_LIB=C:\Program Files\Java\javafx-sdk-21.0.11\lib"
 
 REM Check if Java is installed

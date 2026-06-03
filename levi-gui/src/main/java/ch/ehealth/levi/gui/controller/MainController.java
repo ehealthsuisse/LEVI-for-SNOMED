@@ -18,8 +18,8 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import translation.check.Conf;
-import translation.check.DbConnection;
+import ch.ehealth.levi.core.Conf;
+import ch.ehealth.levi.core.DbConnection;
 
 import java.io.File;
 import java.io.InputStream;
@@ -419,7 +419,7 @@ public class MainController {
             case "eszett-check":    task = jobService.createEszettCheckTask(conf);       break;
             case "not-published": {
                 // Reuse the manager from the previous job if it already loaded the current file
-                translation.check.CompareManager preloaded =
+            	ch.ehealth.levi.core.compare.CompareManager preloaded =
                         (prevResult != null) ? prevResult.getManager() : null;
                 task = jobService.createNotPublishedTask(conf, preloaded);
                 break;

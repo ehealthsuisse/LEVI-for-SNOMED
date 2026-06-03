@@ -2,7 +2,7 @@ package ch.ehealth.levi.gui.model;
 
 import java.util.ArrayList;
 import java.util.List;
-import translation.check.CompareManager;
+import ch.ehealth.levi.core.compare.CompareManager;
 
 /**
  * Model class to hold job execution results

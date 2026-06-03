@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import ch.ehealth.levi.gui.model.AppConfig;
 import ch.ehealth.levi.gui.util.EncryptionUtil;
-import translation.check.Conf;
+import ch.ehealth.levi.core.Conf;
 
 /**
  * Service for managing application configuration

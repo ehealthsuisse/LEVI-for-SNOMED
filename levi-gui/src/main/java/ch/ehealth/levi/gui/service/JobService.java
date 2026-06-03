@@ -4,8 +4,8 @@ import ch.ehealth.levi.gui.model.JobResult;
 import javafx.concurrent.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import translation.check.CompareManager;
-import translation.check.Conf;
+import ch.ehealth.levi.core.compare.CompareManager;
+import ch.ehealth.levi.core.Conf;
 
 /**
  * Service for executing LEVI jobs asynchronously
