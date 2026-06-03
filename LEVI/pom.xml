@@ -8,7 +8,8 @@
   <version>0.0.1-SNAPSHOT</version>
 
   <build>
-    <sourceDirectory>src</sourceDirectory>
+    <sourceDirectory>src/translation</sourceDirectory>
+    <testSourceDirectory>src/test/java</testSourceDirectory>
       <plugins>
 
       <plugin>
@@ -40,6 +41,32 @@
             <phase>package</phase>
             <goals>
               <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.11</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
             </goals>
           </execution>
         </executions>
@@ -89,7 +116,7 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.13.0</version>
+      <version>2.15.3</version>
     </dependency>
     
     <dependency>
@@ -103,11 +130,34 @@
 	  <artifactId>logback-classic</artifactId>
 	  <version>1.5.6</version>
 	</dependency>
+
+	<!-- Add SLF4J API to enable structured logging and migration from System.out/System.err -->
+	<dependency>
+	  <groupId>org.slf4j</groupId>
+	  <artifactId>slf4j-api</artifactId>
+	  <version>2.0.7</version>
+	</dependency>
+
+	<!-- Test dependencies -->
+	<dependency>
+	  <groupId>org.junit.jupiter</groupId>
+	  <artifactId>junit-jupiter</artifactId>
+	  <version>5.10.0</version>
+	  <scope>test</scope>
+	</dependency>
 	
 	<dependency>
-    <groupId>org.apache.commons</groupId>
-    <artifactId>commons-lang3</artifactId>
-    <version>3.13.0</version>
+	  <groupId>org.mockito</groupId>
+	  <artifactId>mockito-core</artifactId>
+	  <version>5.5.0</version>
+	  <scope>test</scope>
+	</dependency>
+	
+	<dependency>
+	  <groupId>org.mockito</groupId>
+	  <artifactId>mockito-junit-jupiter</artifactId>
+	  <version>5.5.0</version>
+	  <scope>test</scope>
 	</dependency>
 	
   </dependencies>

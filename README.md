@@ -37,10 +37,130 @@ The SNOMED International Edition and National Extensions can be obtained via [**
 git clone https://github.com/your-org/SNOMED_Applications.git
 ```
 
-* Open Eclipse IDE
-* Select "Import > Existing Projects into Workspace"
-* Choose the cloned levi-for-snomed folder
-* Run `Main.java` as a Java application
+## Option A: Run via Eclipse (no command line arguments)
+
+1. Open Eclipse IDE
+2. Select **File > Import > Existing Projects into Workspace**
+3. Choose the cloned `LEVI-for-SNOMED` folder
+4. Open `Conf.java` and set the file paths and parameters directly in the class
+5. In `Main.java`, make sure the desired method is **uncommented**, for example:
+
+```java
+compareManager.runTranslationOverview(conf.getFilePathCurrent(), conf.getDestination());
+```
+
+6. Right-click `Main.java` → **Run As** → **Java Application**
+
+
+## Option B: Build JAR and run via Command Line
+
+### Step 1: Build the JAR with Maven
+
+Open a terminal in the project root folder (where `pom.xml` is located) and run:
+
+```bash
+mvn clean package
+```
+
+This creates the following file in the `target/` folder:
+
+```
+target/SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar
+```
+
+### Step 2: Run the JAR with arguments
+
+Open a terminal and navigate to the `target/` folder:
+
+```bash
+cd C:\Users\eHealth Suisse\Documents\GitHub\LEVI-for-SNOMED\LEVI\target
+```
+
+Then run the JAR with the desired task and parameters. Example for the **Translation Overview**:
+
+```bash
+java -jar SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar ^
+  --task=overview ^
+  --country=DE ^
+  --current="C:\Users\eHealth Suisse\Desktop\SNOMED\Files zum Pruefen\Q_ICD-10-SNOMED_x8.xlsx" ^
+  --dest="C:\Users\eHealth Suisse\Desktop\SNOMED"
+```
+
+### Available tasks
+
+| Argument            | Description                              |
+|---------------------|------------------------------------------|
+| `--task=overview`        | Translation Overview                |
+| `--task=desc-add`        | Delta Description Additions         |
+| `--task=desc-inact`      | Delta Description Inactivations     |
+| `--task=translate-delta` | Generate Translation Delta          |
+| `--task=eszett-check`    | Check Eszett in Extension           |
+| `--task=not-published`   | Delta Not Published Translations    |
+
+### All available arguments
+
+| Argument              | Description                              |
+|-----------------------|------------------------------------------|
+| `--task=`             | Task to execute (see table above)        |
+| `--country=`          | Country code (e.g. DE, FR, IT)           |
+| `--current=`          | Path to the current input file           |
+| `--previous=`         | Path to the previous input file          |
+| `--dest=`             | Output destination folder                |
+| `--dbUrl=`            | JDBC database URL                        |
+| `--dbUser=`           | Database username                        |
+| `--dbPassword=`       | Database password                        |
+| `--transformEszett=`  | true/false – transform Eszett (ß)        |
+| `--regex=`            | true/false – enable regex validation     |
+
+> ⚠️ **Note:** To use command line arguments, the argument parsing block in `Main.java` must be **uncommented**.
+
+---
+
+## Unit Testing
+
+Unit tests are implemented for the LEVI core module in `LEVI/src/test/java/translation/check`.
+
+### Run tests
+
+From the repository root:
+
+```bash
+mvn -f LEVI/pom.xml test
+```
+
+Or from inside the LEVI module:
+
+```bash
+cd LEVI
+mvn test
+```
+
+### Generate and view coverage
+
+The LEVI module is configured with JaCoCo. After running tests, coverage artifacts are generated in:
+
+- `LEVI/target/jacoco.exec`
+- `LEVI/target/site/jacoco/index.html`
+
+### Currently included test classes
+
+- `ConfTest`
+- `ComparatorTest`
+- `FileReaderUtilTest`
+- `RegexValidatorTest`
+- `ResultCollectorTest`
+
+Current suite size: 113 tests in total.
+
+### Scope of existing tests
+
+- Configuration parsing and default handling
+- Comparator behavior and translation matching logic
+- File reader parsing helpers
+- Regex validation rules
+- ResultCollector add/get/reset behavior
+
+---
 
 ## Architecture / Technical Overview
 

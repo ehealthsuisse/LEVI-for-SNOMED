@@ -7,8 +7,12 @@ import java.util.Scanner;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class TermspaceInactivationsCsvProcessor extends CsvProcessor{
 	
+	private static final Logger logger = LoggerFactory.getLogger(TermspaceInactivationsCsvProcessor.class);
 	private ResultCollector collector;
 	
 	public TermspaceInactivationsCsvProcessor(CSVReader csvReader, ResultCollector collector) {
@@ -30,27 +34,27 @@ public class TermspaceInactivationsCsvProcessor extends CsvProcessor{
                 if (languageCode.equals("de") || languageCode.equals("fr") || languageCode.equals("it")) {
                     break;
                 } else {
-                    System.out.println("Invalid language code. Please enter 'de', 'fr', or 'it'.");
+                    logger.info("Invalid language code. Please enter 'de', 'fr', or 'it'.");
                 }
             }
 			try {
 				rows = csvReader.readAll();
 			} catch (IOException | CsvException e) {
-				e.printStackTrace();
+				logger.error("Failed to read CSV rows: {}", e.getMessage());
 			}
 	        for (String[] row : rows) {
 	        	if (isFirstRow) {
-	        		isFirstRow = false;
-	        		continue;
-	        	}
-	        	
-	        	String descriptionId = row[0];
-	        	String term = row[2];
-	        	String conceptId = row[9];
-	        	
-	        	collector.setFullInactivationsCurrent(
-		        		descriptionId, term, languageCode, conceptId);
-	        }
+					isFirstRow = false;
+					continue;
+				}
+				
+				String descriptionId = row[0];
+				String term = row[2];
+				String conceptId = row[9];
+				
+				collector.setFullInactivationsCurrent(
+						descriptionId, term, languageCode, conceptId);
+			}
 	    }
 
 }
