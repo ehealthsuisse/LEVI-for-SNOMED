@@ -1,18 +1,20 @@
 package ch.ehealth.levi.gui.service;
 
-import ch.ehealth.levi.gui.model.AppConfig;
-import ch.ehealth.levi.gui.util.EncryptionUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import translation.check.Conf;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
+import ch.ehealth.levi.gui.model.AppConfig;
+import ch.ehealth.levi.gui.util.EncryptionUtil;
+import translation.check.Conf;
 
 /**
  * Service for managing application configuration
@@ -159,6 +161,7 @@ public class ConfigService {
         conf.setCountryCode(currentConfig.getSettings().getCountryCode());
         conf.setTransformEszett(currentConfig.getSettings().isTransformEszett());
         conf.setRegexCheck(currentConfig.getSettings().isRegexCheck());
+        conf.setGroupingEnabled(currentConfig.getSettings().isGrouping());
         
         // Paths
         conf.setFilePathCurrent(currentConfig.getPaths().getCurrentFile());

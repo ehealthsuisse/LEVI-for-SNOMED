@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,7 +26,7 @@ import org.slf4j.LoggerFactory;
  *  G3  – INACTIVATION only
  *  G4  – REACTIVATION only
  *  G5  – CHANGE + ADDITION
- *  G6  – CHANGE + INACTIVATION
+ *  G6  – CHANGE + INACTIVATION+
  *  G7  – CHANGE + REACTIVATION
  *  G8  – ADDITION + INACTIVATION
  *  G9  – ADDITION + REACTIVATION

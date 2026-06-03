@@ -138,17 +138,19 @@ public class DbConnection {
 			            FROM full_description fd1
 			            INNER JOIN (
 			                SELECT
+			                    fd2.id,
 			                    fd2.conceptId,
 			                    fd2.languageCode,
 			                    fd2.term,
 			                    MAX(fd2.effectiveTime) AS max_time
 			                FROM full_description fd2
 			                INNER JOIN temp_concept_ids t ON fd2.conceptId = t.conceptId
-			                GROUP BY fd2.conceptId, fd2.languageCode, fd2.term
+			                GROUP BY fd2.id, fd2.conceptId, fd2.languageCode, fd2.term
 			            ) latest_d
 			              ON fd1.conceptId     = latest_d.conceptId
 			             AND fd1.languageCode  = latest_d.languageCode
 			             AND fd1.term          = latest_d.term
+			             AND fd1.id            = latest_d.id
 			             AND fd1.effectiveTime = latest_d.max_time
 			            WHERE fd1.languageCode IN (
 			        """ + langPlaceholders + """

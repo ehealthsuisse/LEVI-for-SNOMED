@@ -53,6 +53,7 @@ public class MainController {
     
     @FXML private CheckBox eszettCheckBox;
     @FXML private CheckBox regexCheckBox;
+    @FXML private CheckBox groupingCheckBox;
     
     @FXML private TextField currentFileField;
     @FXML private Button currentFileBrowseButton;
@@ -139,6 +140,7 @@ public class MainController {
         dbPasswordField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.password")));
         eszettCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.eszett")));
         regexCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.regex")));
+        groupingCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.grouping")));
         currentFileField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.current")));
         previousFileField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.previous")));
         outputDirField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.output")));
@@ -177,6 +179,7 @@ public class MainController {
         dbPasswordField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         eszettCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
         regexCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        groupingCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
         currentFileField.textProperty().addListener((obs, old, val) -> {
             updateConfigFromUI();
             validateConfiguration();
@@ -198,7 +201,7 @@ public class MainController {
         
         eszettCheckBox.setSelected(config.getSettings().isTransformEszett());
         regexCheckBox.setSelected(config.getSettings().isRegexCheck());
-        
+        groupingCheckBox.setSelected(config.getSettings().isGrouping());
         currentFileField.setText(config.getPaths().getCurrentFile());
         previousFileField.setText(config.getPaths().getPreviousFile());
         outputDirField.setText(config.getPaths().getOutputDirectory());
@@ -218,6 +221,7 @@ public class MainController {
         
         config.getSettings().setTransformEszett(eszettCheckBox.isSelected());
         config.getSettings().setRegexCheck(regexCheckBox.isSelected());
+        config.getSettings().setGrouping(groupingCheckBox.isSelected());
         
         config.getPaths().setCurrentFile(currentFileField.getText());
         config.getPaths().setPreviousFile(previousFileField.getText());

@@ -6,6 +6,7 @@ setlocal
 
 set "SCRIPT_DIR=%~dp0"
 set "JAR_FILE=%SCRIPT_DIR%target\levi-gui-1.0.0.jar"
+set "JAVAFX_LIB=C:\Program Files\Java\javafx-sdk-21.0.11\lib"
 
 REM Check if Java is installed
 where java >nul 2>nul
@@ -42,6 +43,12 @@ if not exist "%JAR_FILE%" (
 
 REM Launch the application
 echo Starting LEVI GUI...
-start "LEVI GUI" javaw -jar "%JAR_FILE%"
+javaw --module-path "%JAVAFX_LIB%" --add-modules javafx.controls,javafx.fxml -jar "%JAR_FILE%"
+
+if %ERRORLEVEL% NEQ 0 (
+    echo Error: Failed to start LEVI GUI.
+    pause
+    exit /b 1
+)
 
 REM Note: Using javaw instead of java to avoid console window

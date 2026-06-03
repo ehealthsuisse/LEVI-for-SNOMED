@@ -22,6 +22,7 @@ public class Conf {
 	private String countryCode = "CH"; // Country code for selecting the local language reference sets
 	private boolean transformEszett = true ;// ture = Eszeet should be changed to "ss" in the translations
 	private boolean regexCheck = true; // true = regex check is performed on the terms in the current file
+        private boolean groupingEnabled = true; // true = output files will be grouped into G1-G15 based on the change types of the concepts
 	
 	
 	
@@ -102,6 +103,10 @@ public class Conf {
     public void setRegexCheck(boolean regexCheck) {
         this.regexCheck = regexCheck;
     }
+
+    public void setGroupingEnabled(boolean groupingEnabled) {
+        this.groupingEnabled = groupingEnabled;
+    }
     
     public void setDbUrl(String serverUrl) {
 		this.SERVER_URL = serverUrl;
@@ -171,8 +176,12 @@ public class Conf {
         this.countryCode = countryCode;
     }
 	
-	public boolean checkRegex() {
-		return regexCheck;
-	}
+        public boolean checkRegex() {
+                return regexCheck;
+        }
+
+        public boolean isGroupingEnabled() {
+                return groupingEnabled;
+        }
 
 }

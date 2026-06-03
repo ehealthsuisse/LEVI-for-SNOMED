@@ -72,6 +72,7 @@
                         <HBox spacing="20">
                             <CheckBox fx:id="eszettCheckBox" text="Eszett Transform (ß → ss)"/>
                             <CheckBox fx:id="regexCheckBox" text="Regex Validation"/>
+                            <CheckBox fx:id="groupingCheckBox" text="Grouping output files"/>
                         </HBox>
                         
                         <Separator/>

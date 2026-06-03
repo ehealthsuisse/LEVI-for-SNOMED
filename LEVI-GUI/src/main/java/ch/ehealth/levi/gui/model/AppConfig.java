@@ -121,6 +121,9 @@ public class AppConfig {
         @JsonProperty("regexCheck")
         private boolean regexCheck = true;
         
+        @JsonProperty("grouping")
+        private boolean grouping = true;
+        
         public String getCountryCode() {
             return countryCode;
         }
@@ -143,6 +146,14 @@ public class AppConfig {
         
         public void setRegexCheck(boolean regexCheck) {
             this.regexCheck = regexCheck;
+        }
+        
+        public boolean isGrouping() {
+            return grouping;
+        }
+        
+        public void setGrouping(boolean grouping) {
+            this.grouping = grouping;
         }
     }
     

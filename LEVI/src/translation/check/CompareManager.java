@@ -11,6 +11,7 @@ public class CompareManager {
 	private final FileWriterUtil writer;
 	private final Comparator comparator;
 	private final BatchExportService batchExportService;
+	private final boolean groupingEnabled;
 
 	// Counts populated after each run* call
 	private int lastAdditionsCount;
@@ -24,6 +25,7 @@ public class CompareManager {
         this.writer            = new FileWriterUtil();
         this.comparator        = new Comparator(resultCollector, conf);
         this.batchExportService = new BatchExportService();
+		this.groupingEnabled = conf.isGroupingEnabled();
     }
 
 	public int getLastAdditionsCount()     { return lastAdditionsCount; }
@@ -71,9 +73,10 @@ public class CompareManager {
 	 */
 	public void runGenerateDelta(String path, String destination) throws ClassNotFoundException, IOException, SQLException {
 		reader.readFile(path);
+		
+		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
+		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
 
-		// Additions — also populates TRANSLATION_CHANGES, TRANSLATION_REACTIVATION,
-		// and the description→concept ID mapping in ResultCollector.
 		List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
 		lastAdditionsCount = Math.max(0, additions.size() - 1);
 
@@ -89,12 +92,19 @@ public class CompareManager {
 			lastReactivationsCount = Math.max(0, reactivations.size() - 1);
 		}
 
-		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
-		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
-
-		// Delegate all file writing to BatchExportService (group-based aligned output)
-		batchExportService.export(additions, changes, inactivations, reactivations,
-				resultCollector, destination);
+		if (groupingEnabled) {
+				batchExportService.export(additions, changes, inactivations, reactivations,
+						resultCollector, destination);
+			} else {
+				writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", additions);
+				if (changes != null) {
+					writer.writeToFile(destination + "\\DeltaDescChanges.tsv", changes);
+				}
+				if (reactivations != null) {
+					writer.writeToFile(destination + "\\DeltaDescReactivation.tsv", reactivations);
+				}
+				writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", inactivations);
+			}
 	}
 	
 	public void runCheckEszettInExtension(String destination) throws ClassNotFoundException, IOException, SQLException {

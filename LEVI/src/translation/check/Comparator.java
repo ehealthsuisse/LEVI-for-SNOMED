@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -212,6 +213,18 @@ public class Comparator {
 		            matchFound = true;
 		            
 		            if ("0".equals(oldDesccriptionStatus)) {
+		            	
+		                boolean hasDuplicateActive = oldEntriesForConcept.stream()
+		                    .filter(other -> !other.get(10).equals(oldDescriptionId)) // andere DescriptionId
+		                    .filter(other -> oldTerm.equals(other.get(4)))            // gleicher Term
+		                    .filter(other -> oldLangCode.equals(other.get(5)))        // gleiche LangCode
+		                    .anyMatch(other -> "1".equals(other.get(11)));            // aktiv
+		                
+		                if (hasDuplicateActive) {
+		                    break;
+		                }
+		            	
+		            	
 		                resultCollector.addDescriptionToConceptMapping(oldDescriptionId, conceptId);
 		                resultCollector.setFullTranslationReactivation(
 								oldDescriptionId, 
@@ -230,7 +243,7 @@ public class Comparator {
 								"", //placeholder for acceptability 5
 								"Translation reactivation"
 			                );		                		
-		            }		            	            	else if (
+		            } else if (
 		            				// case if oldAccept is empty of null
 		                    ((oldAccept == null || oldAccept.isEmpty()) 
 		                        && newAccept != null && !newAccept.isEmpty())
@@ -313,17 +326,63 @@ public class Comparator {
 	    }
 	
 		 
-		if(conf.isTransformEszett()) {
-			for (List<String> row : resultCollector.getDataByType("TRANSLATION_INACTIVATION_CURRENT")) {
-				String term = row.get(1);
+	    if(conf.isTransformEszett()) {
+
+	        List<List<String>> currentTranslations = 
+	                resultCollector.getDataByType("NEW_TRANSLATION_CURRENT");
+
+	        boolean currentMissing = (currentTranslations == null || currentTranslations.isEmpty());
+	        String warningNote = "WARNING: NEW_TRANSLATION_CURRENT not available - " +
+	                "could not verify whether 'ss' term is Swiss spelling form. " +
+	                "Inactivation was applied without ß-counterpart check.";
+
+	        if (currentMissing) {
+	            logger.warn("NEW_TRANSLATION_CURRENT is empty or not available. " +
+	                    "Cannot reliably detect Swiss spelling forms (ss vs ß). " +
+	                    "All 'ss' terms will be inactivated without verification.");
+	        }
+
+	        Iterator<List<String>> iterator = allInactivationCurrent.iterator();
+	        while (iterator.hasNext()) {
+	            List<String> row = iterator.next();
+	            String term = row.get(1);
 				String languageCode = row.get(2);
-						
-				if ("de".equalsIgnoreCase(languageCode) && term.contains("ß")) {
-				       term = term.replace("ß", "ss");
-				       row.set(1, term); // Update the term in the new entry
-				   }
-			}
-		}
+
+	            if ("de".equalsIgnoreCase(languageCode) && term.contains("ß")) {
+	                row.set(1, term.replace("ß", "ss"));
+	                continue;
+	            }
+
+	            if ("de".equalsIgnoreCase(languageCode) && term.contains("ss")) {
+	                if (currentMissing) {
+	                    // Ensure notes column exists (index 10 according to header)
+	                    while (row.size() <= 10) {
+	                        row.add("");
+	                    }
+	                    String existingNote = row.get(10) == null ? "" : row.get(10);
+	                    row.set(10, existingNote.isEmpty() 
+	                            ? warningNote 
+	                            : existingNote + " | " + warningNote);
+	                    logger.warn("Term '{}' inactivated without ß-counterpart check " +
+	                            "(NEW_TRANSLATION_CURRENT missing).", term);
+	                    continue;
+	                }
+
+	                boolean hasEszettCounterpart = currentTranslations.stream()
+	                    .anyMatch(other -> {
+	                        String otherTerm = other.get(1);
+	                        return otherTerm != null
+	                            && otherTerm.replace("ß", "ss").equalsIgnoreCase(term);
+	                    });
+
+	                if (hasEszettCounterpart) {
+	                    logger.info("Skipping term '{}' – ß-counterpart found in " +
+	                        "NEW_TRANSLATION_CURRENT", term);
+	                    iterator.remove();
+	                }
+	            }
+	        }
+	    }
 		
 		
 		logger.info("Fetching translations from DB for local languages only...");		
@@ -558,18 +617,15 @@ public class Comparator {
 	    return result;
 	}
 	
-		// Used to find the index of the concept that is already in the structuredList.
-		private static int findInnerListIndex(List<List<String>> outerList, String element) {
-			for (int i = 0; i < outerList.size(); i++) {
-				List<String> innerList = outerList.get(i);
-				if (innerList.contains(element)) {
-					return i; // Return the index of the inner list
-				}
+	// Used to find the index of the concept that is already in the structuredList.
+	private static int findInnerListIndex(List<List<String>> outerList, String element) {
+		for (int i = 0; i < outerList.size(); i++) {
+			List<String> innerList = outerList.get(i);
+			if (innerList.contains(element)) {
+				return i; // Return the index of the inner list
 			}
-			return -1; // Return -1 if the element is not found in any inner list
 		}
-
-
-
+		return -1; // Return -1 if the element is not found in any inner list
+	}
 
 }
