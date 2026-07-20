@@ -1,8 +1,10 @@
 package ch.ehealth.levi.gui.controller;
 
 import ch.ehealth.levi.gui.model.AppConfig;
+import ch.ehealth.levi.gui.model.AppConfig.GitHubConfig;
 import ch.ehealth.levi.gui.model.JobResult;
 import ch.ehealth.levi.gui.service.ConfigService;
+import ch.ehealth.levi.gui.service.GitHubUploadService;
 import ch.ehealth.levi.gui.service.JobService;
 import ch.ehealth.levi.gui.util.GuiInputStream;
 import ch.ehealth.levi.gui.util.GuiLogAppender;
@@ -40,6 +42,7 @@ public class MainController {
     // Services
     private final ConfigService configService;
     private final JobService jobService;
+    private final GitHubUploadService gitHubUploadService;
     
     // Stage
     private Stage stage;
@@ -79,6 +82,13 @@ public class MainController {
     @FXML private ProgressBar progressBar;
     @FXML private Label statusLabel;
     @FXML private Label runtimeLabel;
+
+    // GitHub Upload
+    @FXML private TextField githubRepoField;
+    @FXML private TextField githubBranchField;
+    @FXML private PasswordField githubTokenField;
+    @FXML private CheckBox githubAutoUploadCheckBox;
+    @FXML private Button uploadGitHubButton;
     
     // Results Section
     @FXML private TabPane resultsTabPane;
@@ -105,6 +115,7 @@ public class MainController {
     public MainController() {
         this.configService = new ConfigService();
         this.jobService = new JobService();
+        this.gitHubUploadService = new GitHubUploadService();
     }
     
     @FXML
@@ -172,6 +183,9 @@ public class MainController {
         startButton.setOnAction(e -> startJob());
         cancelButton.setOnAction(e -> cancelJob());
         
+        // GitHub upload button
+        uploadGitHubButton.setOnAction(e -> uploadToGitHub());
+
         // Update config when fields change
         dbNameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbPortField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
@@ -189,6 +203,12 @@ public class MainController {
             updateConfigFromUI();
             validateConfiguration();
         });
+
+        // GitHub field listeners
+        githubRepoField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        githubBranchField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        githubTokenField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        githubAutoUploadCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
     }
     
     private void updateUIFromConfig() {
@@ -205,6 +225,13 @@ public class MainController {
         currentFileField.setText(config.getPaths().getCurrentFile());
         previousFileField.setText(config.getPaths().getPreviousFile());
         outputDirField.setText(config.getPaths().getOutputDirectory());
+
+        if (config.getGithub() != null) {
+            githubRepoField.setText(config.getGithub().getRepoUrl());
+            githubBranchField.setText(config.getGithub().getBranch());
+            githubTokenField.setText(config.getGithub().getToken());
+            githubAutoUploadCheckBox.setSelected(config.getGithub().isAutoUpload());
+        }
     }
     
     private void updateConfigFromUI() {
@@ -226,6 +253,13 @@ public class MainController {
         config.getPaths().setCurrentFile(currentFileField.getText());
         config.getPaths().setPreviousFile(previousFileField.getText());
         config.getPaths().setOutputDirectory(outputDirField.getText());
+
+        if (config.getGithub() != null) {
+            config.getGithub().setRepoUrl(githubRepoField.getText());
+            config.getGithub().setBranch(githubBranchField.getText());
+            config.getGithub().setToken(githubTokenField.getText());
+            config.getGithub().setAutoUpload(githubAutoUploadCheckBox.isSelected());
+        }
     }
     
     private void testDatabaseConnection() {
@@ -400,6 +434,14 @@ public class MainController {
             return;
         }
         
+        File outputDir = new File(configService.getCurrentConfig().getPaths().getOutputDirectory());
+        if (!outputDir.exists()) {
+            if (!outputDir.mkdirs()) {
+                showError("Configuration Error", "Cannot create output directory: " + outputDir.getAbsolutePath());
+                return;
+            }
+        }
+        
         List<String> queue = new ArrayList<>(selectedJobTypes);
         updateJobRunningState(true);
         startRuntimeUpdater();
@@ -433,14 +475,15 @@ public class MainController {
 
         currentTask = task;
 
-        // Switch to Log tab and log start
+        // Switch to Progress tab and show starting message
+        statisticsArea.clear();
         String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
         if (queue.size() > 1) {
-            logMessage("\n[" + ts + "] ▶ Starting job " + (index + 1) + "/" + queue.size() + ": " + jobType);
+            appendProgress("[" + ts + "] Starting job " + (index + 1) + "/" + queue.size() + ": " + jobType);
         } else {
-            logMessage("\n[" + ts + "] ▶ Starting: " + jobType);
+            appendProgress("[" + ts + "] Starting: " + jobType);
         }
-        resultsTabPane.getSelectionModel().select(1);
+        resultsTabPane.getSelectionModel().select(0);
         Platform.runLater(() -> mainScrollPane.setVvalue(1.0));
 
         // Redirect System.in so stdin prompts from LEVI core are handled by the GUI
@@ -456,15 +499,15 @@ public class MainController {
     }
     
     private void setupTaskHandlers(Task<JobResult> task, List<String> queue, int index) {
-        // Pipe task status messages to log area in real time
+        // Pipe task status messages to Progress tab in real time
         task.messageProperty().addListener((obs, oldMsg, newMsg) -> {
             if (newMsg != null && !newMsg.isEmpty()) {
-                logMessage("  " + newMsg);
+                appendProgress(newMsg);
             }
         });
 
-        // Progress
-        progressBar.progressProperty().bind(task.progressProperty());
+        // Progress bar — indeterminate (no fake percentages)
+        progressBar.setProgress(-1);
         statusLabel.textProperty().bind(task.messageProperty());
 
         // Success
@@ -473,10 +516,10 @@ public class MainController {
             currentTask = null;
             cleanupInputStream();
             String doneTs = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-            logMessage("[" + doneTs + "] " + (result.isSuccessful() ? "✅ Completed" : "❌ Failed")
+            appendProgress("[" + doneTs + "] " + (result.isSuccessful() ? "Completed" : "Failed")
                     + " (" + formatDuration(result.getExecutionTimeMs() / 1000) + ")");
             displayResult(result);
-            progressBar.progressProperty().unbind();
+            progressBar.setProgress(0);
             statusLabel.textProperty().unbind();
             updateLastJobStatus(result);
             if (index + 1 < queue.size()) {
@@ -486,6 +529,12 @@ public class MainController {
             } else {
                 updateJobRunningState(false);
                 updateJobButtonsState();
+                // Auto-upload to GitHub if enabled
+                if (result.isSuccessful() && configService.getCurrentConfig().getGithub() != null
+                        && configService.getCurrentConfig().getGithub().isAutoUpload()) {
+                    updateConfigFromUI();
+                    Platform.runLater(() -> uploadToGitHub());
+                }
             }
         });
 
@@ -495,20 +544,20 @@ public class MainController {
             logger.error("Job failed", ex);
             currentTask = null;
             cleanupInputStream();
-            logMessage("ERROR: " + (ex != null ? ex.getMessage() : "unknown error"));
-            progressBar.progressProperty().unbind();
+            appendProgress("ERROR: " + (ex != null ? ex.getMessage() : "unknown error"));
+            progressBar.setProgress(0);
             statusLabel.textProperty().unbind();
             updateJobRunningState(false);
             updateJobButtonsState();
-            showError("Job Failed", I18nUtil.get("error.job.failed", ex != null ? ex.getMessage() : "unknown error"));
+            showError("Job Failed", "Job failed: " + (ex != null ? ex.getMessage() : "unknown error"));
         });
 
         // Cancelled
         task.setOnCancelled(e -> {
             currentTask = null;
             cleanupInputStream();
-            logMessage("Job cancelled by user");
-            progressBar.progressProperty().unbind();
+            appendProgress("Job cancelled");
+            progressBar.setProgress(0);
             statusLabel.textProperty().unbind();
             updateJobRunningState(false);
             updateJobButtonsState();
@@ -524,35 +573,28 @@ public class MainController {
     
     private void displayResult(JobResult result) {
         StringBuilder stats = new StringBuilder();
-        stats.append("=== ").append(I18nUtil.get("results.title")).append(": ")
-             .append(result.getJobType()).append(" ===\n\n");
+        stats.append("=== ").append(result.getJobType()).append(" ===\n\n");
         
         if (result.isSuccessful()) {
-            stats.append("✅ ").append(I18nUtil.get("jobs.status.success")).append("\n\n");
+            stats.append("Successful\n\n");
             
-            stats.append(I18nUtil.get("results.statistics.additions")).append(" ")
-                 .append(result.getAdditionsCount()).append("\n");
-            stats.append(I18nUtil.get("results.statistics.changes")).append(" ")
-                 .append(result.getChangesCount()).append("\n");
-            stats.append(I18nUtil.get("results.statistics.inactivations")).append(" ")
-                 .append(result.getInactivationsCount()).append("\n");
-            stats.append(I18nUtil.get("results.statistics.reactivations")).append(" ")
-                 .append(result.getReactivationsCount()).append("\n\n");
+            stats.append("Additions:    ").append(result.getAdditionsCount()).append("\n");
+            stats.append("Changes:      ").append(result.getChangesCount()).append("\n");
+            stats.append("Inactivations: ").append(result.getInactivationsCount()).append("\n");
+            stats.append("Reactivations: ").append(result.getReactivationsCount()).append("\n\n");
             
-            stats.append(I18nUtil.get("results.statistics.errors")).append(" ")
-                 .append(result.getErrorsCount()).append("\n");
-            stats.append(I18nUtil.get("results.statistics.warnings")).append(" ")
-                 .append(result.getWarningsCount()).append("\n\n");
+            stats.append("Errors:   ").append(result.getErrorsCount()).append("\n");
+            stats.append("Warnings: ").append(result.getWarningsCount()).append("\n\n");
             
             long seconds = result.getExecutionTimeMs() / 1000;
-            stats.append(I18nUtil.get("jobs.progress.runtime", formatDuration(seconds))).append("\n");
+            stats.append("Runtime: ").append(formatDuration(seconds)).append("\n");
         } else {
-            stats.append("❌ ").append(I18nUtil.get("jobs.status.failed")).append("\n\n");
+            stats.append("Failed\n\n");
             stats.append("Error: ").append(result.getErrorMessage()).append("\n");
         }
         
-        statisticsArea.setText(stats.toString());
-        resultsTabPane.getSelectionModel().select(0); // Select statistics tab
+        statisticsArea.appendText(stats.toString());
+        resultsTabPane.getSelectionModel().select(0);
     }
     
     private void updateJobButtonsState() {
@@ -580,10 +622,13 @@ public class MainController {
     private void updateJobRunningState(boolean running) {
         startButton.setDisable(running);
         cancelButton.setDisable(!running);
+        uploadGitHubButton.setDisable(running);
         
-        if (!running) {
+        if (running) {
+            progressBar.setProgress(-1);
+        } else {
             progressBar.setProgress(0);
-            statusLabel.setText(I18nUtil.get("jobs.status.idle"));
+            statusLabel.setText("Idle");
             runtimeLabel.setText("");
         }
     }
@@ -594,7 +639,7 @@ public class MainController {
                 long elapsed = System.currentTimeMillis() - jobStartTime;
                 long seconds = elapsed / 1000;
                 Platform.runLater(() -> {
-                    runtimeLabel.setText(I18nUtil.get("jobs.progress.runtime", formatDuration(seconds)));
+                    runtimeLabel.setText("Runtime: " + formatDuration(seconds));
                 });
                 
                 try {
@@ -624,7 +669,7 @@ public class MainController {
     }
     
     private void updateStatusBar() {
-        statusBarLabel.setText(I18nUtil.get("status.idle"));
+        statusBarLabel.setText("Idle");
         
         // Test DB connection in background
         Task<Boolean> dbTest = new Task<Boolean>() {
@@ -661,15 +706,65 @@ public class MainController {
     }
     
     private void updateLastJobStatus(JobResult result) {
-        String status = result.isSuccessful() ? "✅ " + I18nUtil.get("jobs.status.success") 
-                                              : "❌ " + I18nUtil.get("jobs.status.failed");
+        String status = result.isSuccessful() ? "Successful" : "Failed";
         long seconds = result.getExecutionTimeMs() / 1000;
-        lastJobLabel.setText(I18nUtil.get("status.lastjob", 
-                                         result.getJobType(), 
-                                         formatDuration(seconds), 
-                                         status));
+        lastJobLabel.setText("Last Job: " + result.getJobType() + ", "
+                + formatDuration(seconds) + ", " + status);
     }
     
+    @FXML
+    private void uploadToGitHub() {
+        updateConfigFromUI();
+        GitHubConfig gitHubConfig = configService.getCurrentConfig().getGithub();
+
+        if (gitHubConfig == null || gitHubConfig.getRepoUrl() == null || gitHubConfig.getRepoUrl().isEmpty()) {
+            showWarning("GitHub Upload", "No repository configured. Set your repo in Configuration → GitHub Upload.");
+            return;
+        }
+
+        String outputDir = configService.getCurrentConfig().getPaths().getOutputDirectory();
+        if (outputDir == null || outputDir.isEmpty()) {
+            showWarning("GitHub Upload", "No output directory configured.");
+            return;
+        }
+
+        if (gitHubUploadService.isUploading()) {
+            logMessage("Upload already in progress...");
+            return;
+        }
+
+        Task<String> uploadTask = new Task<String>() {
+            @Override
+            protected String call() throws Exception {
+                updateMessage("Uploading results to GitHub...");
+                return gitHubUploadService.uploadResults(outputDir, gitHubConfig);
+            }
+        };
+
+        uploadTask.setOnSucceeded(e -> {
+            String result = uploadTask.getValue();
+            logMessage("✅ " + result);
+            statusLabel.setText("Upload complete");
+            uploadGitHubButton.setDisable(false);
+        });
+
+        uploadTask.setOnFailed(e -> {
+            Throwable ex = uploadTask.getException();
+            String msg = (ex != null) ? ex.getMessage() : "Unknown error";
+            logMessage("❌ GitHub upload failed: " + msg);
+            statusLabel.setText("Upload failed");
+            uploadGitHubButton.setDisable(false);
+        });
+
+        uploadGitHubButton.setDisable(true);
+        logMessage("Starting GitHub upload...");
+        statusLabel.setText("Uploading to GitHub...");
+
+        Thread thread = new Thread(uploadTask);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     private void showLogInputPrompt() {
         if (logInputBox == null) return; // guard against FXML injection failure
         logInputBox.setVisible(true);
@@ -707,6 +802,12 @@ public class MainController {
     private void logMessage(String message) {
         Platform.runLater(() -> {
             logArea.appendText(message + "\n");
+        });
+    }
+
+    private void appendProgress(String message) {
+        Platform.runLater(() -> {
+            statisticsArea.appendText(message + "\n");
         });
     }
     

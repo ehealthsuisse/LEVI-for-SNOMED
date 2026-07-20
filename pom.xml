@@ -33,7 +33,7 @@
         <mysql.version>9.5.0</mysql.version>
         <hapi-fhir.version>6.2.0</hapi-fhir.version>
         <junit.version>5.10.0</junit.version>
-        <mockito.version>5.5.0</mockito.version>
+        <mockito.version>5.18.0</mockito.version>
     </properties>
 
     <dependencyManagement>
@@ -135,6 +135,15 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.2.2</version>
+                    <configuration>
+        				<argLine>
+            				-XX:+EnableDynamicAgentLoading
+            				--add-opens java.base/java.lang=ALL-UNNAMED
+            				--add-opens java.base/java.lang.reflect=ALL-UNNAMED
+            				--add-opens java.base/java.util=ALL-UNNAMED
+           				 	-Djdk.attach.allowAttachSelf=true
+        				</argLine>
+    				</configuration>
                 </plugin>
             </plugins>
         </pluginManagement>

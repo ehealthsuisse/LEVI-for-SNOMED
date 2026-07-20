@@ -55,7 +55,14 @@ public class ConfigService {
             String encryptedPassword = EncryptionUtil.encrypt(plainPassword);
             configToSave.getDatabase().setPassword(encryptedPassword);
         }
-        
+
+        // Encrypt GitHub token before saving
+        String plainToken = configToSave.getGithub().getToken();
+        if (plainToken != null && !plainToken.isEmpty()) {
+            String encryptedToken = EncryptionUtil.encrypt(plainToken);
+            configToSave.getGithub().setToken(encryptedToken);
+        }
+
         objectMapper.writeValue(file, configToSave);
         logger.info("Configuration saved to: {}", file.getAbsolutePath());
         
@@ -79,6 +86,15 @@ public class ConfigService {
         if (encryptedPassword != null && !encryptedPassword.isEmpty()) {
             String plainPassword = EncryptionUtil.decrypt(encryptedPassword);
             loadedConfig.getDatabase().setPassword(plainPassword);
+        }
+
+        // Decrypt GitHub token after loading
+        if (loadedConfig.getGithub() != null) {
+            String encryptedToken = loadedConfig.getGithub().getToken();
+            if (encryptedToken != null && !encryptedToken.isEmpty()) {
+                String plainToken = EncryptionUtil.decrypt(encryptedToken);
+                loadedConfig.getGithub().setToken(plainToken);
+            }
         }
         
         this.currentConfig = loadedConfig;
@@ -197,9 +213,17 @@ public class ConfigService {
         
         // Check if output directory exists or can be created
         File outputDir = new File(currentConfig.getPaths().getOutputDirectory());
-        if (!outputDir.exists()) {
-            if (!outputDir.mkdirs()) {
-                return "Cannot create output directory: " + outputDir.getAbsolutePath();
+        if (outputDir.exists() && !outputDir.isDirectory()) {
+            return "Output path exists but is not a directory: " + outputDir.getAbsolutePath();
+        }
+        
+        // Validate GitHub config if auto-upload is enabled
+        if (currentConfig.getGithub() != null && currentConfig.getGithub().isAutoUpload()) {
+            if (currentConfig.getGithub().getRepoUrl() == null || currentConfig.getGithub().getRepoUrl().isEmpty()) {
+                return "GitHub repository URL is required when auto-upload is enabled";
+            }
+            if (currentConfig.getGithub().getToken() == null || currentConfig.getGithub().getToken().isEmpty()) {
+                return "GitHub token is required when auto-upload is enabled";
             }
         }
         

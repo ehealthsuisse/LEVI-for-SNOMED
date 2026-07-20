@@ -259,7 +259,9 @@ public class Comparator {
 		                    // both not empty but different
 		                    || (oldAccept != null && !oldAccept.isEmpty()
 		                        && newAccept != null && !newAccept.isEmpty()
-		                        && !oldAccept.equalsIgnoreCase(newAccept))) {		                resultCollector.addDescriptionToConceptMapping(oldDescriptionId, conceptId);		                resultCollector.setFullTranslationChanges(
+		                        && !oldAccept.equalsIgnoreCase(newAccept))) {		                
+		            	resultCollector.addDescriptionToConceptMapping(oldDescriptionId, conceptId);		                
+		            	resultCollector.setFullTranslationChanges(
 								oldDescriptionId, 
 								"", //placeholder for preferred term
 								newTerm,
@@ -316,35 +318,22 @@ public class Comparator {
 		List<List<String>> allInactivationCurrent =
 		            resultCollector.getDataByType("TRANSLATION_INACTIVATION_CURRENT");
 		
-		// Local vs foreign language according to configuration (countryCode --> LanguageRefSets)
-		List<List<String>> localRows   = new ArrayList<>();
-		List<List<String>> foreignRows = new ArrayList<>();
 		
-	    for (List<String> row : allInactivationCurrent) {
-	        String languageCode = row.get(2) == null ? "" : row.get(2).trim().toLowerCase();
-	        if (conf.isLocalLanguage(languageCode)) {
-	            localRows.add(row);
-	        } else {
-	            foreignRows.add(row); // e.g. en for CH/AT
-	        }
-	    }
-	
-		 
 	    if(conf.isTransformEszett()) {
 
-	        List<List<String>> currentTranslations = 
-	                resultCollector.getDataByType("NEW_TRANSLATION_CURRENT");
+	    	List<List<String>> currentTranslations = 
+	    	        resultCollector.getDataByType("NEW_TRANSLATION_CURRENT");
 
-	        boolean currentMissing = (currentTranslations == null || currentTranslations.isEmpty());
-	        String warningNote = "WARNING: NEW_TRANSLATION_CURRENT not available - " +
-	                "could not verify whether 'ss' term is Swiss spelling form. " +
-	                "Inactivation was applied without ß-counterpart check.";
+	    	boolean currentMissing = (currentTranslations == null || currentTranslations.isEmpty());
+	    	String warningNote = "WARNING: NEW_TRANSLATION_CURRENT not available - " +
+	    	        "could not verify whether 'ss' term is Swiss spelling form. " +
+	    	        "Inactivation was applied without ß-counterpart check.";
 
-	        if (currentMissing) {
-	            logger.warn("NEW_TRANSLATION_CURRENT is empty or not available. " +
-	                    "Cannot reliably detect Swiss spelling forms (ss vs ß). " +
-	                    "All 'ss' terms will be inactivated without verification.");
-	        }
+	    	if (currentMissing) {
+	    	    logger.warn("NEW_TRANSLATION_CURRENT is empty or not available. " +
+	    	            "Cannot reliably detect Swiss spelling forms (ss vs ß). " +
+	    	            "All 'ss' terms will be inactivated without verification.");
+	    	}
 
 	        Iterator<List<String>> iterator = allInactivationCurrent.iterator();
 	        while (iterator.hasNext()) {
@@ -374,9 +363,15 @@ public class Comparator {
 
 	                boolean hasEszettCounterpart = currentTranslations.stream()
 	                    .anyMatch(other -> {
-	                        String otherTerm = other.get(1);
-	                        return otherTerm != null
+	                        String otherTerm = other.get(3);	// Term
+	                        String otherLang = other.get(4);	// Language Code
+	                        
+	                        boolean match = "de".equalsIgnoreCase(otherLang)
+	                            && otherTerm != null
+	                            && otherTerm.contains("ß")
 	                            && otherTerm.replace("ß", "ss").equalsIgnoreCase(term);
+	                        
+	                        return match;
 	                    });
 
 	                if (hasEszettCounterpart) {
@@ -388,6 +383,19 @@ public class Comparator {
 	        }
 	    }
 		
+	    
+		// Local vs foreign language according to configuration (countryCode --> LanguageRefSets)
+		List<List<String>> localRows   = new ArrayList<>();
+		List<List<String>> foreignRows = new ArrayList<>();
+		
+	    for (List<String> row : allInactivationCurrent) {
+	        String languageCode = row.get(2) == null ? "" : row.get(2).trim().toLowerCase();
+	        if (conf.isLocalLanguage(languageCode)) {
+	            localRows.add(row);
+	        } else {
+	            foreignRows.add(row); // e.g. en for CH/AT
+	        }
+	    }
 		
 		logger.info("Fetching translations from DB for local languages only...");		
 		dbConnection.searchDescriptions(localRows); // Fetch descriptions from the database and populate oldTranslation

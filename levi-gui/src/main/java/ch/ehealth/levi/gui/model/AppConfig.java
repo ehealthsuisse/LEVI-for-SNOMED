@@ -18,11 +18,15 @@ public class AppConfig {
     
     @JsonProperty("paths")
     private Paths paths;
-    
+
+    @JsonProperty("github")
+    private GitHubConfig github;
+
     public AppConfig() {
         this.database = new DatabaseConfig();
         this.settings = new Settings();
         this.paths = new Paths();
+        this.github = new GitHubConfig();
     }
     
     // Getters and setters
@@ -57,7 +61,15 @@ public class AppConfig {
     public void setPaths(Paths paths) {
         this.paths = paths;
     }
-    
+
+    public GitHubConfig getGithub() {
+        return github;
+    }
+
+    public void setGithub(GitHubConfig github) {
+        this.github = github;
+    }
+
     public static class DatabaseConfig {
         @JsonProperty("dbName")
         private String dbName = "SCT:CH_Dec25";
@@ -189,6 +201,52 @@ public class AppConfig {
         
         public void setOutputDirectory(String outputDirectory) {
             this.outputDirectory = outputDirectory;
+        }
+    }
+
+    public static class GitHubConfig {
+        @JsonProperty("repoUrl")
+        private String repoUrl = "";
+
+        @JsonProperty("branch")
+        private String branch = "results";
+
+        @JsonProperty("token")
+        private String token = "";
+
+        @JsonProperty("autoUpload")
+        private boolean autoUpload = false;
+
+        public String getRepoUrl() {
+            return repoUrl;
+        }
+
+        public void setRepoUrl(String repoUrl) {
+            this.repoUrl = repoUrl;
+        }
+
+        public String getBranch() {
+            return branch;
+        }
+
+        public void setBranch(String branch) {
+            this.branch = branch;
+        }
+
+        public String getToken() {
+            return token;
+        }
+
+        public void setToken(String token) {
+            this.token = token;
+        }
+
+        public boolean isAutoUpload() {
+            return autoUpload;
+        }
+
+        public void setAutoUpload(boolean autoUpload) {
+            this.autoUpload = autoUpload;
         }
     }
 }

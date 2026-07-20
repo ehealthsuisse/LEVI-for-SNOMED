@@ -23,23 +23,19 @@ public class JobService {
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
                 updateMessage("Starting translation overview...");
-                updateProgress(0, 100);
                 
                 JobResult result = new JobResult("overview");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
                     updateMessage("Reading file...");
-                    updateProgress(30, 100);
                     
                     manager.runTranslationOverview(conf.getFilePathCurrent(), conf.getDestination());
                     
                     updateMessage("Creating overview...");
-                    updateProgress(90, 100);
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
-                    updateProgress(100, 100);
                 } catch (Exception e) {
                     logger.error("Error in translation overview", e);
                     result.setSuccessful(false);
@@ -63,14 +59,12 @@ public class JobService {
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
                 updateMessage("Starting description additions...");
-                updateProgress(0, 100);
                 
                 JobResult result = new JobResult("desc-add");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
                     updateMessage("Reading file...");
-                    updateProgress(30, 100);
                     
                     manager.runDeltaDescAdditions(conf.getFilePathCurrent(), conf.getDestination());
                     
@@ -78,11 +72,9 @@ public class JobService {
                     result.setChangesCount(manager.getLastChangesCount());
 
                     updateMessage("Generating additions delta...");
-                    updateProgress(90, 100);
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
-                    updateProgress(100, 100);
                 } catch (Exception e) {
                     logger.error("Error in description additions", e);
                     result.setSuccessful(false);
@@ -106,25 +98,21 @@ public class JobService {
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
                 updateMessage("Starting description inactivations...");
-                updateProgress(0, 100);
                 
                 JobResult result = new JobResult("desc-inact");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
                     updateMessage("Reading file...");
-                    updateProgress(30, 100);
                     
                     manager.runDeltaDescInactivations(conf.getFilePathCurrent(), conf.getDestination());
                     
                     result.setInactivationsCount(manager.getLastInactivationsCount());
 
                     updateMessage("Generating inactivations delta...");
-                    updateProgress(90, 100);
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
-                    updateProgress(100, 100);
                 } catch (Exception e) {
                     logger.error("Error in description inactivations", e);
                     result.setSuccessful(false);
@@ -148,14 +136,12 @@ public class JobService {
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
                 updateMessage("Starting full delta generation...");
-                updateProgress(0, 100);
                 
                 JobResult result = new JobResult("translate-delta");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
                     updateMessage("Reading file...");
-                    updateProgress(20, 100);
                     
                     manager.runGenerateDelta(conf.getFilePathCurrent(), conf.getDestination());
                     
@@ -165,11 +151,9 @@ public class JobService {
                     result.setInactivationsCount(manager.getLastInactivationsCount());
 
                     updateMessage("Generating complete delta...");
-                    updateProgress(90, 100);
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
-                    updateProgress(100, 100);
                 } catch (Exception e) {
                     logger.error("Error in translate delta", e);
                     result.setSuccessful(false);
@@ -193,22 +177,18 @@ public class JobService {
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
                 updateMessage("Starting eszett check...");
-                updateProgress(0, 100);
                 
                 JobResult result = new JobResult("eszett-check");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
                     updateMessage("Checking eszett in extension...");
-                    updateProgress(50, 100);
                     
                     manager.runCheckEszettInExtension(conf.getDestination());
                     
                     updateMessage("Generating results...");
-                    updateProgress(90, 100);
                     
                     result.setSuccessful(true);
-                    updateProgress(100, 100);
                 } catch (Exception e) {
                     logger.error("Error in eszett check", e);
                     result.setSuccessful(false);
@@ -242,7 +222,6 @@ public class JobService {
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
                 updateMessage("Finding not published translations...");
-                updateProgress(0, 100);
                 
                 JobResult result = new JobResult("not-published");
                 
@@ -250,7 +229,6 @@ public class JobService {
                     if (preloadedManager != null) {
                         // Current file already loaded — only read the previous file.
                         updateMessage("Reusing loaded data; reading previous file...");
-                        updateProgress(50, 100);
                         preloadedManager.runDeltaNotPublishedTranslationsReusingCurrent(
                             conf.getFilePathPrevious(),
                             conf.getDestination()
@@ -258,9 +236,7 @@ public class JobService {
                     } else {
                         CompareManager manager = new CompareManager(conf);
                         updateMessage("Reading current file...");
-                        updateProgress(30, 100);
                         updateMessage("Reading previous file...");
-                        updateProgress(50, 100);
                         manager.runDeltaNotPublishedTranslations(
                             conf.getFilePathCurrent(),
                             conf.getFilePathPrevious(),
@@ -269,10 +245,8 @@ public class JobService {
                     }
                     
                     updateMessage("Finding unpublished translations...");
-                    updateProgress(90, 100);
                     
                     result.setSuccessful(true);
-                    updateProgress(100, 100);
                 } catch (Exception e) {
                     logger.error("Error finding not published translations", e);
                     result.setSuccessful(false);

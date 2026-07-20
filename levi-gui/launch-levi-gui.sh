@@ -3,7 +3,7 @@
 # This script launches the LEVI GUI application
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-JAR_FILE="$SCRIPT_DIR/target/levi-gui-1.0.0.jar"
+JAR_FILE="$SCRIPT_DIR/target/levi-gui-2.0.0.jar"
 
 # Initialize SDKMAN if available
 if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
@@ -56,6 +56,4 @@ fi
 
 # Launch the application
 echo "Starting LEVI GUI..."
-java -Xdock:icon="$SCRIPT_DIR/icons/android-chrome-512x512.png" \
-     -Xdock:name="LEVI for SNOMED" \
-     -jar "$JAR_FILE"
+java -jar "$JAR_FILE"

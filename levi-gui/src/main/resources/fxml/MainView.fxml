@@ -100,7 +100,28 @@
                         </GridPane>
                         
                         <Separator/>
-                        
+
+                        <!-- GitHub Upload Section -->
+                        <Label text="GitHub Upload" style="-fx-font-weight: bold;"/>
+                        <GridPane hgap="10" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="180" prefWidth="180"/>
+                                <ColumnConstraints hgrow="ALWAYS"/>
+                            </columnConstraints>
+
+                            <Label text="Repository URL:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <TextField fx:id="githubRepoField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                            <Label text="Branch:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="githubBranchField" promptText="default branch" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                            <Label text="Token (PAT):" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <PasswordField fx:id="githubTokenField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                        </GridPane>
+                        <CheckBox fx:id="githubAutoUploadCheckBox" text="Auto-upload after job"/>
+
+                        <Separator/>
+
                         <!-- Config Buttons -->
                         <HBox spacing="10" alignment="CENTER">
                             <Button fx:id="saveConfigButton" text="Save Config"/>
@@ -155,8 +176,8 @@
                 <!-- Results Section -->
                 <TitledPane text="Results" expanded="true" collapsible="false">
                     <TabPane fx:id="resultsTabPane" tabClosingPolicy="UNAVAILABLE" prefHeight="300">
-                        <!-- Statistics Tab -->
-                        <Tab text="Statistics">
+                        <!-- Progress Tab -->
+                        <Tab text="Progress">
                             <ScrollPane fitToWidth="true" fitToHeight="true">
                                 <TextArea fx:id="statisticsArea" editable="false" 
                                          style="-fx-font-family: 'Courier New'; -fx-font-size: 14px;"
@@ -170,6 +191,7 @@
                                 <HBox spacing="10">
                                     <Button text="Clear Log" onAction="#clearLog"/>
                                     <Button text="Save Log" onAction="#saveLog"/>
+                                    <Button fx:id="uploadGitHubButton" text="Upload to GitHub" onAction="#uploadToGitHub"/>
                                 </HBox>
                                 <ScrollPane fitToWidth="true" fitToHeight="true">
                                     <TextArea fx:id="logArea" editable="false" 
