@@ -6,9 +6,15 @@ import com.opencsv.CSVReader;
 
 public abstract class CsvProcessor {
 	protected CSVReader csvReader;
+	protected String languageCodeFilter;
+
+    public CsvProcessor(CSVReader csvReader, String languageCodeFilter) {
+        this.csvReader = csvReader;
+        this.languageCodeFilter = languageCodeFilter;
+    }
 
     public CsvProcessor(CSVReader csvReader) {
-        this.csvReader = csvReader;
+        this(csvReader, null);
     }
 
     public abstract void process() throws IOException;

@@ -12,7 +12,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -127,25 +126,12 @@ public class Comparator {
 	public List<List<String>> generateDescriptionAdditionAndChangesDelta() throws IOException, SQLException, ClassNotFoundException {
 		
 		logger.info("Starting with description addition delta...");
-		String specificLanguage = null;
-		
-		@SuppressWarnings("resource")
-		Scanner scanner = new Scanner(System.in);
-		while (true) {
-			logger.info("Is the import for a specific language? (de, fr, it) [press Enter for none]: ");
-			specificLanguage = scanner.nextLine().trim().toLowerCase();
+		String specificLanguage = conf.getLanguageCodeFilter();
 
-			if (specificLanguage.isEmpty()) {
-				specificLanguage = null;
-				logger.info("--> No specific language selected.");
-				break;
-			}
-
-			if (specificLanguage.equals("de") || specificLanguage.equals("fr") || specificLanguage.equals("it")) {
-				break;
-			} else {
-				logger.info("Invalid language code. Please enter 'de', 'fr', or 'it', or press Enter for none.");
-			}
+		if (specificLanguage != null) {
+			logger.info("--> Using language filter: {}", specificLanguage);
+		} else {
+			logger.info("--> No specific language selected, processing all languages.");
 		}
 
 		//////////////// Starting with translation additions

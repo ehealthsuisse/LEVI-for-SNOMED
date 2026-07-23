@@ -1,7 +1,5 @@
 package ch.ehealth.levi.core.processor;
 
-import java.util.Scanner;
-
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -16,12 +14,12 @@ public class DescriptionInactivationLoader {
 	private static final Logger logger = LoggerFactory.getLogger(DescriptionInactivationLoader.class);
 	//TODO: Add check if the file is empty or has no rows
 
-	public void loadAndInsertExcel(Sheet sheet, ResultCollector collector, String releaseType) {
+	public void loadAndInsertExcel(Sheet sheet, ResultCollector collector, String releaseType, String languageCodeFilter) {
 		Row header = sheet.getRow(0);
 		int rowCount = sheet.getPhysicalNumberOfRows();
         boolean hasLanguageCode = false;
         int languageCodeColumnIndex = -1;
-        String language = null;
+        String language = languageCodeFilter;
 
         
         if (header != null) {
@@ -35,19 +33,15 @@ public class DescriptionInactivationLoader {
             }
         }
         
-        // If no 'Language Code' column is found, prompt the user for input
+        // If no 'Language Code' column is found, use the configured language filter
         if (!hasLanguageCode) {
-            @SuppressWarnings("resource")
-			Scanner scanner = new Scanner(System.in);
-            while (true) {
-                logger.info("No 'Language Code' column found in inactivation tab. Please enter the language code (de, fr, it): ");
-                language = scanner.nextLine().trim().toLowerCase();
-                if (language.equals("de") || language.equals("fr") || language.equals("it")) {
-                    break;
-                } else {
-                    logger.info("Invalid language code. Please enter 'de', 'fr', or 'it'.");
-                }
+            if (language == null) {
+                logger.error("No 'Language Code' column found in inactivation tab and no language code filter configured. "
+                        + "Set a language code filter in the configuration.");
+                throw new IllegalStateException("Cannot process inactivation file without language code. "
+                        + "Set a language code filter in the configuration.");
             }
+            logger.info("No 'Language Code' column found — using configured language filter: {}", language);
         }
 
 

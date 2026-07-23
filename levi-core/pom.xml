@@ -80,7 +80,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>translation.check.Main</mainClass>
+                            <mainClass>ch.ehealth.levi.core.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

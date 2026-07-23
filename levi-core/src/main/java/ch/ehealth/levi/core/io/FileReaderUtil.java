@@ -33,9 +33,15 @@ public class FileReaderUtil {
     private static final Logger logger = LoggerFactory.getLogger(FileReaderUtil.class);
 
 	private ResultCollector resultCollector;
+	private String languageCodeFilter;
 
 	public FileReaderUtil(ResultCollector collector) {
+		this(collector, null);
+	}
+
+	public FileReaderUtil(ResultCollector collector, String languageCodeFilter) {
 		this.resultCollector = collector;
+		this.languageCodeFilter = languageCodeFilter;
 	}
 
 	/**
@@ -103,7 +109,7 @@ public class FileReaderUtil {
 					break;
 				case "Inactivations.tsv":
 					logger.info("Processing SNOMED International `Inactivations.tsv` file...");
-					new SiInactivationsCSVProcessor(csvReader, resultCollector).process();
+					new SiInactivationsCSVProcessor(csvReader, resultCollector, languageCodeFilter).process();
 					break;
 				case ".simpleOverview.tsv":
 					logger.info("Processing `.simpleOverview.tsv` file...");
@@ -195,7 +201,7 @@ public class FileReaderUtil {
 
 			case "Description Inactivations":
 				logger.info("Starting processing description inactivations");
-				new DescriptionInactivationLoader().loadAndInsertExcel(sheet, resultCollector, releaseType);
+				new DescriptionInactivationLoader().loadAndInsertExcel(sheet, resultCollector, releaseType, languageCodeFilter);
 
 				break;
 

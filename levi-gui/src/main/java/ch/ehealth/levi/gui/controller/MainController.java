@@ -6,7 +6,6 @@ import ch.ehealth.levi.gui.model.JobResult;
 import ch.ehealth.levi.gui.service.ConfigService;
 import ch.ehealth.levi.gui.service.GitHubUploadService;
 import ch.ehealth.levi.gui.service.JobService;
-import ch.ehealth.levi.gui.util.GuiInputStream;
 import ch.ehealth.levi.gui.util.GuiLogAppender;
 import ch.ehealth.levi.gui.util.I18nUtil;
 import javafx.application.Platform;
@@ -24,13 +23,13 @@ import ch.ehealth.levi.core.Conf;
 import ch.ehealth.levi.core.DbConnection;
 
 import java.io.File;
-import java.io.InputStream;
 import java.sql.Connection;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Main controller for the LEVI GUI application
@@ -54,6 +53,8 @@ public class MainController {
     @FXML private PasswordField dbPasswordField;
     @FXML private Button dbTestButton;
     
+    @FXML private ComboBox<String> countryCodeComboBox;
+    @FXML private ComboBox<String> languageFilterComboBox;
     @FXML private CheckBox eszettCheckBox;
     @FXML private CheckBox regexCheckBox;
     @FXML private CheckBox groupingCheckBox;
@@ -94,8 +95,6 @@ public class MainController {
     @FXML private TabPane resultsTabPane;
     @FXML private TextArea statisticsArea;
     @FXML private TextArea logArea;
-    @FXML private HBox logInputBox;
-    @FXML private TextField logInputField;
 
     // Main scroll pane (center of the BorderPane)
     @FXML private ScrollPane mainScrollPane;
@@ -109,8 +108,6 @@ public class MainController {
     private Task<JobResult> currentTask;
     private final List<String> selectedJobTypes = new ArrayList<>();
     private long jobStartTime;
-    private GuiInputStream guiInputStream;
-    private static final InputStream ORIGINAL_STDIN = System.in;
     
     public MainController() {
         this.configService = new ConfigService();
@@ -125,30 +122,60 @@ public class MainController {
         // Set up tooltips
         setupTooltips();
         
+        // Populate country code dropdown from Conf (before updateUIFromConfig)
+        countryCodeComboBox.getItems().setAll(ch.ehealth.levi.core.Conf.getAvailableCountryCodes());
+        countryCodeComboBox.getSelectionModel().selectedItemProperty()
+                .addListener((obs, old, val) -> {
+                    if (val != null) {
+                        updateLanguageFilterItems(val);
+                    }
+                });
+
+        // Populate language filter dropdown
+        languageFilterComboBox.getItems().setAll("All", "de", "fr", "it");
+
         // Load last configuration
         configService.loadLastConfig();
         updateUIFromConfig();
         
         // Set up event handlers
         setupEventHandlers();
-        
+
         // Initialize UI state
         updateJobButtonsState();
         updateStatusBar();
 
         // Wire GUI log appender so LEVI core logs appear in the log area
         GuiLogAppender.setLogArea(logArea);
-        // Enter key in the input field acts the same as clicking Submit
-        logInputField.setOnAction(e -> submitLogInput());
 
         logger.info("MainController initialized");
     }
     
+    private void updateLanguageFilterItems(String countryCode) {
+        Set<String> validLanguages = ch.ehealth.levi.core.Conf.getLanguagesForCountry(countryCode);
+        String currentValue = languageFilterComboBox.getValue();
+        List<String> items = new ArrayList<>();
+        if (validLanguages.size() > 1) {
+            items.add("All");
+        }
+        validLanguages.stream().sorted().forEach(items::add);
+        languageFilterComboBox.getItems().setAll(items);
+        if (validLanguages.size() == 1) {
+            languageFilterComboBox.setValue(validLanguages.iterator().next());
+        } else if (currentValue != null && items.contains(currentValue)) {
+            languageFilterComboBox.setValue(currentValue);
+        } else {
+            languageFilterComboBox.setValue("All");
+        }
+    }
+
     private void setupTooltips() {
         dbNameField.setTooltip(new Tooltip("Database name, e.g. SCT:CH_Dec25"));
         dbPortField.setTooltip(new Tooltip("MySQL port, default 3306"));
         dbUsernameField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.username")));
         dbPasswordField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.password")));
+        countryCodeComboBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.country")));
+        languageFilterComboBox.setTooltip(new Tooltip("Filter delta to a specific language, or leave as 'All'"));
         eszettCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.eszett")));
         regexCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.regex")));
         groupingCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.grouping")));
@@ -194,6 +221,7 @@ public class MainController {
         eszettCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
         regexCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
         groupingCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        languageFilterComboBox.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> updateConfigFromUI());
         currentFileField.textProperty().addListener((obs, old, val) -> {
             updateConfigFromUI();
             validateConfiguration();
@@ -211,31 +239,49 @@ public class MainController {
         githubAutoUploadCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
     }
     
+    private boolean suppressConfigUpdates = false;
+    
     private void updateUIFromConfig() {
-        AppConfig config = configService.getCurrentConfig();
-        
-        dbNameField.setText(config.getDatabase().getDbName());
-        dbPortField.setText(String.valueOf(config.getDatabase().getDbPort()));
-        dbUsernameField.setText(config.getDatabase().getUsername());
-        dbPasswordField.setText(config.getDatabase().getPassword());
-        
-        eszettCheckBox.setSelected(config.getSettings().isTransformEszett());
-        regexCheckBox.setSelected(config.getSettings().isRegexCheck());
-        groupingCheckBox.setSelected(config.getSettings().isGrouping());
-        currentFileField.setText(config.getPaths().getCurrentFile());
-        previousFileField.setText(config.getPaths().getPreviousFile());
-        outputDirField.setText(config.getPaths().getOutputDirectory());
+        suppressConfigUpdates = true;
+        try {
+            AppConfig config = configService.getCurrentConfig();
 
-        if (config.getGithub() != null) {
-            githubRepoField.setText(config.getGithub().getRepoUrl());
-            githubBranchField.setText(config.getGithub().getBranch());
-            githubTokenField.setText(config.getGithub().getToken());
-            githubAutoUploadCheckBox.setSelected(config.getGithub().isAutoUpload());
+            dbNameField.setText(config.getDatabase().getDbName());
+            dbPortField.setText(String.valueOf(config.getDatabase().getDbPort()));
+            dbUsernameField.setText(config.getDatabase().getUsername());
+            dbPasswordField.setText(config.getDatabase().getPassword());
+
+            countryCodeComboBox.setValue(config.getSettings().getCountryCode());
+            updateLanguageFilterItems(config.getSettings().getCountryCode());
+            languageFilterComboBox.setValue(config.getSettings().getLanguageCodeFilter());
+            eszettCheckBox.setSelected(config.getSettings().isTransformEszett());
+            regexCheckBox.setSelected(config.getSettings().isRegexCheck());
+            groupingCheckBox.setSelected(config.getSettings().isGrouping());
+
+            currentFileField.setText(config.getPaths().getCurrentFile());
+            previousFileField.setText(config.getPaths().getPreviousFile());
+            outputDirField.setText(config.getPaths().getOutputDirectory());
+
+            if (config.getGithub() != null) {
+                githubRepoField.setText(config.getGithub().getRepoUrl());
+                githubBranchField.setText(config.getGithub().getBranch());
+                githubTokenField.setText(config.getGithub().getToken());
+                githubAutoUploadCheckBox.setSelected(config.getGithub().isAutoUpload());
+            }
+        } finally {
+            suppressConfigUpdates = false;
         }
+        
+        // Do ONE explicit sync afterward, now that everything is consistent in the UI
+        validateConfiguration();
     }
     
     private void updateConfigFromUI() {
-        AppConfig config = configService.getCurrentConfig();
+    	if (suppressConfigUpdates) {
+            return;
+        }
+    	
+    	AppConfig config = configService.getCurrentConfig();
         
         config.getDatabase().setDbName(dbNameField.getText());
         try {
@@ -246,6 +292,8 @@ public class MainController {
         config.getDatabase().setUsername(dbUsernameField.getText());
         config.getDatabase().setPassword(dbPasswordField.getText());
         
+        config.getSettings().setCountryCode(countryCodeComboBox.getValue());
+        config.getSettings().setLanguageCodeFilter(languageFilterComboBox.getValue());
         config.getSettings().setTransformEszett(eszettCheckBox.isSelected());
         config.getSettings().setRegexCheck(regexCheckBox.isSelected());
         config.getSettings().setGrouping(groupingCheckBox.isSelected());
@@ -486,10 +534,6 @@ public class MainController {
         resultsTabPane.getSelectionModel().select(0);
         Platform.runLater(() -> mainScrollPane.setVvalue(1.0));
 
-        // Redirect System.in so stdin prompts from LEVI core are handled by the GUI
-        guiInputStream = new GuiInputStream(this::showLogInputPrompt);
-        System.setIn(guiInputStream);
-
         jobStartTime = System.currentTimeMillis();
         setupTaskHandlers(task, queue, index);
 
@@ -514,7 +558,6 @@ public class MainController {
         task.setOnSucceeded(e -> {
             JobResult result = task.getValue();
             currentTask = null;
-            cleanupInputStream();
             String doneTs = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
             appendProgress("[" + doneTs + "] " + (result.isSuccessful() ? "Completed" : "Failed")
                     + " (" + formatDuration(result.getExecutionTimeMs() / 1000) + ")");
@@ -543,7 +586,6 @@ public class MainController {
             Throwable ex = task.getException();
             logger.error("Job failed", ex);
             currentTask = null;
-            cleanupInputStream();
             appendProgress("ERROR: " + (ex != null ? ex.getMessage() : "unknown error"));
             progressBar.setProgress(0);
             statusLabel.textProperty().unbind();
@@ -555,7 +597,6 @@ public class MainController {
         // Cancelled
         task.setOnCancelled(e -> {
             currentTask = null;
-            cleanupInputStream();
             appendProgress("Job cancelled");
             progressBar.setProgress(0);
             statusLabel.textProperty().unbind();
@@ -763,40 +804,6 @@ public class MainController {
         Thread thread = new Thread(uploadTask);
         thread.setDaemon(true);
         thread.start();
-    }
-
-    private void showLogInputPrompt() {
-        if (logInputBox == null) return; // guard against FXML injection failure
-        logInputBox.setVisible(true);
-        logInputBox.setManaged(true);
-        logInputField.clear();
-        resultsTabPane.getSelectionModel().select(1); // ensure Log tab is visible
-        mainScrollPane.setVvalue(1.0);              // scroll so the input bar is on screen
-        logInputField.requestFocus();
-    }
-
-    private void hideLogInputPrompt() {
-        logInputBox.setVisible(false);
-        logInputBox.setManaged(false);
-    }
-
-    private void cleanupInputStream() {
-        hideLogInputPrompt();
-        System.setIn(ORIGINAL_STDIN);
-        if (guiInputStream != null) {
-            guiInputStream.close();
-            guiInputStream = null;
-        }
-    }
-
-    @FXML
-    private void submitLogInput() {
-        String input = logInputField.getText();
-        logMessage("  > " + input);  // echo to log area
-        hideLogInputPrompt();
-        if (guiInputStream != null) {
-            guiInputStream.provideInput(input);
-        }
     }
 
     private void logMessage(String message) {

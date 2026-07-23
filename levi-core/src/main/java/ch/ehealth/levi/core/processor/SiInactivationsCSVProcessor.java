@@ -2,7 +2,6 @@ package ch.ehealth.levi.core.processor;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Scanner;
 
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
@@ -17,8 +16,8 @@ public class SiInactivationsCSVProcessor extends CsvProcessor{
 		private static final Logger logger = LoggerFactory.getLogger(TermspaceInactivationsCsvProcessor.class);
 		private ResultCollector collector;
 		
-		public SiInactivationsCSVProcessor(CSVReader csvReader, ResultCollector collector) {
-	        super(csvReader);
+		public SiInactivationsCSVProcessor(CSVReader csvReader, ResultCollector collector, String languageCodeFilter) {
+	        super(csvReader, languageCodeFilter);
 			this.collector = collector;
 	    }
 		
@@ -26,19 +25,15 @@ public class SiInactivationsCSVProcessor extends CsvProcessor{
 		    public void process() throws IOException {
 		        List<String[]> rows = null;
 		        boolean isFirstRow = true;
-		        String languageCode = null;
+		        String languageCode = languageCodeFilter;
 		        
-		        @SuppressWarnings("resource")
-				Scanner scanner = new Scanner(System.in);
-	            while (true) {
-	                System.out.print("No 'Language Code' column in Termspace inactivation CSV. Please enter the language code (de, fr, it): ");
-	                languageCode = scanner.nextLine().trim().toLowerCase();
-	                if (languageCode.equals("de") || languageCode.equals("fr") || languageCode.equals("it")) {
-	                    break;
-	                } else {
-	                    logger.info("Invalid language code. Please enter 'de', 'fr', or 'it'.");
-	                }
-	            }
+		        if (languageCode == null) {
+		        	logger.error("No language code filter configured for SNOMED International inactivation CSV. "
+		        			+ "Set a language code filter in the configuration.");
+		        	throw new IllegalStateException("Cannot process SNOMED International inactivation CSV without language code. "
+		        			+ "Set a language code filter in the configuration.");
+		        }
+		        
 				try {
 					rows = csvReader.readAll();
 				} catch (IOException | CsvException e) {

@@ -23,6 +23,7 @@ public class Conf {
 	private boolean transformEszett = true ;// ture = Eszeet should be changed to "ss" in the translations
 	private boolean regexCheck = true; // true = regex check is performed on the terms in the current file
         private boolean groupingEnabled = true; // true = output files will be grouped into G1-G15 based on the change types of the concepts
+        private String languageCodeFilter = null; // null = all languages, or "de", "fr", "it"
 	
 	
 	
@@ -163,10 +164,33 @@ public class Conf {
         return langs.keySet();
     }
     
+    public static Set<String> getAvailableCountryCodes() {
+        return countryToLanguageRefSets.keySet();
+    }
+
+    public static Set<String> getLanguagesForCountry(String countryCode) {
+        return countryToLanguageRefSets
+                .getOrDefault(countryCode.toUpperCase(), Collections.emptyMap())
+                .keySet();
+    }
+
     public boolean isLocalLanguage(String languageCode) {
         if (languageCode == null) return false;
         return getLocalLanguages().contains(languageCode.trim().toLowerCase());
     }
+
+	public String getLanguageCodeFilter() {
+		return languageCodeFilter;
+	}
+
+	public void setLanguageCodeFilter(String languageCodeFilter) {
+		if (languageCodeFilter == null || languageCodeFilter.isEmpty()
+				|| "all".equalsIgnoreCase(languageCodeFilter)) {
+			this.languageCodeFilter = null;
+		} else {
+			this.languageCodeFilter = languageCodeFilter.toLowerCase();
+		}
+	}
 
 	public String getCountryCode() {
 		return countryCode;

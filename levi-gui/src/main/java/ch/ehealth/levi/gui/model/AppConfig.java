@@ -127,6 +127,9 @@ public class AppConfig {
         @JsonProperty("countryCode")
         private String countryCode = "CH";
         
+        @JsonProperty("languageCodeFilter")
+        private String languageCodeFilter = "";
+        
         @JsonProperty("transformEszett")
         private boolean transformEszett = true;
         
@@ -142,6 +145,14 @@ public class AppConfig {
         
         public void setCountryCode(String countryCode) {
             this.countryCode = countryCode;
+        }
+        
+        public String getLanguageCodeFilter() {
+            return languageCodeFilter;
+        }
+        
+        public void setLanguageCodeFilter(String languageCodeFilter) {
+            this.languageCodeFilter = languageCodeFilter;
         }
         
         public boolean isTransformEszett() {

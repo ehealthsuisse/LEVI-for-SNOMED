@@ -74,7 +74,17 @@
                             <CheckBox fx:id="regexCheckBox" text="Regex Validation"/>
                             <CheckBox fx:id="groupingCheckBox" text="Grouping output files"/>
                         </HBox>
-                        
+
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Label text="%config.settings.country"/>
+                            <ComboBox fx:id="countryCodeComboBox" prefWidth="100"/>
+                        </HBox>
+
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Label text="Language Filter"/>
+                            <ComboBox fx:id="languageFilterComboBox" prefWidth="100"/>
+                        </HBox>
+
                         <Separator/>
                         
                         <!-- File Paths -->
@@ -118,6 +128,7 @@
                             <Label text="Token (PAT):" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
                             <PasswordField fx:id="githubTokenField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
                         </GridPane>
+                        <Button fx:id="uploadGitHubButton" text="Upload current folder content to GitHub" onAction="#uploadToGitHub"/>
                         <CheckBox fx:id="githubAutoUploadCheckBox" text="Auto-upload after job"/>
 
                         <Separator/>
@@ -191,23 +202,12 @@
                                 <HBox spacing="10">
                                     <Button text="Clear Log" onAction="#clearLog"/>
                                     <Button text="Save Log" onAction="#saveLog"/>
-                                    <Button fx:id="uploadGitHubButton" text="Upload to GitHub" onAction="#uploadToGitHub"/>
                                 </HBox>
                                 <ScrollPane fitToWidth="true" fitToHeight="true">
                                     <TextArea fx:id="logArea" editable="false" 
                                              style="-fx-font-family: 'Courier New';"
                                              wrapText="true"/>
                                 </ScrollPane>
-                                <!-- Input prompt – shown only when the job awaits stdin -->
-                                <HBox fx:id="logInputBox" spacing="10" alignment="CENTER_LEFT"
-                                      visible="false" managed="false"
-                                      style="-fx-padding: 8; -fx-background-color: #fff3cd; -fx-border-color: #ffc107; -fx-border-width: 1 0 0 0;">
-                                    <Label text="⌨ Input required:" style="-fx-font-weight: bold;"/>
-                                    <TextField fx:id="logInputField" HBox.hgrow="ALWAYS"
-                                               promptText="Type your answer, then press Enter or Submit"
-                                               onAction="#submitLogInput"/>
-                                    <Button text="Submit" onAction="#submitLogInput"/>
-                                </HBox>
                             </VBox>
                         </Tab>
                     </TabPane>

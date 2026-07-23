@@ -84,16 +84,26 @@ public class ConfigService {
         // Decrypt password after loading
         String encryptedPassword = loadedConfig.getDatabase().getPassword();
         if (encryptedPassword != null && !encryptedPassword.isEmpty()) {
-            String plainPassword = EncryptionUtil.decrypt(encryptedPassword);
-            loadedConfig.getDatabase().setPassword(plainPassword);
+            try {
+                String plainPassword = EncryptionUtil.decrypt(encryptedPassword);
+                loadedConfig.getDatabase().setPassword(plainPassword);
+            } catch (Exception e) {
+                logger.error("Failed to decrypt DB password", e);
+                throw new IOException("Failed to decrypt database password", e);
+            }
         }
 
         // Decrypt GitHub token after loading
         if (loadedConfig.getGithub() != null) {
             String encryptedToken = loadedConfig.getGithub().getToken();
             if (encryptedToken != null && !encryptedToken.isEmpty()) {
-                String plainToken = EncryptionUtil.decrypt(encryptedToken);
-                loadedConfig.getGithub().setToken(plainToken);
+                try {
+                    String plainToken = EncryptionUtil.decrypt(encryptedToken);
+                    loadedConfig.getGithub().setToken(plainToken);
+                } catch (Exception e) {
+                    logger.error("Failed to decrypt GitHub token: '{}'", encryptedToken, e);
+                    throw new IOException("Failed to decrypt GitHub token", e);
+                }
             }
         }
         
@@ -175,6 +185,7 @@ public class ConfigService {
         
         // Settings
         conf.setCountryCode(currentConfig.getSettings().getCountryCode());
+        conf.setLanguageCodeFilter(currentConfig.getSettings().getLanguageCodeFilter());
         conf.setTransformEszett(currentConfig.getSettings().isTransformEszett());
         conf.setRegexCheck(currentConfig.getSettings().isRegexCheck());
         conf.setGroupingEnabled(currentConfig.getSettings().isGrouping());

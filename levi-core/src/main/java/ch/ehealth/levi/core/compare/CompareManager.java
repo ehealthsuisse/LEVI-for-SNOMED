@@ -27,7 +27,7 @@ public class CompareManager {
 
     public CompareManager(Conf conf) {
         this.resultCollector   = new ResultCollector();
-        this.reader            = new FileReaderUtil(resultCollector);
+        this.reader            = new FileReaderUtil(resultCollector, conf.getLanguageCodeFilter());
         this.writer            = new FileWriterUtil();
         this.comparator        = new Comparator(resultCollector, conf);
         this.batchExportService = new BatchExportService();
