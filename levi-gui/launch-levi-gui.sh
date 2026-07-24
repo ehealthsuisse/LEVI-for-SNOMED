@@ -45,7 +45,7 @@ if [ ! -f "$JAR_FILE" ]; then
     fi
     
     pushd "$SCRIPT_DIR" > /dev/null
-    if ! mvn clean package; then
+    if ! mvn clean package -q; then
         echo "Error: Build failed. Please check the output above."
         popd > /dev/null
         exit 1
@@ -54,6 +54,12 @@ if [ ! -f "$JAR_FILE" ]; then
     echo "Build successful."
 fi
 
+# macOS-specific dock icon options
+JAVA_OPTS=""
+if [ "$(uname)" == "Darwin" ]; then
+    JAVA_OPTS="-Xdock:icon=$SCRIPT_DIR/icons/android-chrome-512x512.png -Xdock:name=LEVI for SNOMED"
+fi
+
 # Launch the application
 echo "Starting LEVI GUI..."
-java -jar "$JAR_FILE"
+java $JAVA_OPTS -jar "$JAR_FILE"

@@ -1,5 +1,9 @@
 package ch.ehealth.levi.gui.util;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
@@ -9,10 +13,15 @@ import java.util.ResourceBundle;
 public class I18nUtil {
     
     private static final String BUNDLE_BASE_NAME = "i18n.messages";
-    private static Locale currentLocale = Locale.GERMAN; // Default to German
+    private static final String LANGUAGE_PREF_FILE = ".levi-language";
+    private static final Path LANGUAGE_PREF_PATH;
+    
+    private static Locale currentLocale = Locale.ENGLISH;
     private static ResourceBundle resourceBundle;
     
     static {
+        LANGUAGE_PREF_PATH = Paths.get(System.getProperty("user.home"), LANGUAGE_PREF_FILE);
+        loadSavedLocale();
         loadResourceBundle();
     }
     
@@ -98,6 +107,38 @@ public class I18nUtil {
                 locale = Locale.ENGLISH;
         }
         setLocale(locale);
+    }
+    
+    /**
+     * Persists the chosen language so it survives restarts
+     */
+    public static void saveLanguagePreference(String languageCode) {
+        try {
+            Files.writeString(LANGUAGE_PREF_PATH, languageCode);
+        } catch (IOException e) {
+            // silent — preference is optional
+        }
+    }
+    
+    /**
+     * Loads a previously saved language preference from disk
+     */
+    private static void loadSavedLocale() {
+        try {
+            if (Files.exists(LANGUAGE_PREF_PATH)) {
+                String lang = Files.readString(LANGUAGE_PREF_PATH).trim();
+                switch (lang.toLowerCase()) {
+                    case "de": currentLocale = Locale.GERMAN; return;
+                    case "en": currentLocale = Locale.ENGLISH; return;
+                    case "fr": currentLocale = Locale.FRENCH; return;
+                    case "it": currentLocale = Locale.ITALIAN; return;
+                    default: currentLocale = Locale.ENGLISH; return;
+                }
+            }
+        } catch (IOException e) {
+            // silent — fall back to default
+        }
+        currentLocale = Locale.ENGLISH;
     }
     
     /**

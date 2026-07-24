@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import ch.ehealth.levi.gui.model.AppConfig;
 import ch.ehealth.levi.gui.util.EncryptionUtil;
+import ch.ehealth.levi.gui.util.I18nUtil;
 import ch.ehealth.levi.core.Conf;
 
 /**
@@ -205,36 +206,36 @@ public class ConfigService {
      */
     public String validateConfig() {
         if (currentConfig.getDatabase().getDbName() == null || currentConfig.getDatabase().getDbName().isEmpty()) {
-            return "Database name is required";
+            return I18nUtil.get("validation.dbname");
         }
         
         if (currentConfig.getPaths().getCurrentFile() == null || currentConfig.getPaths().getCurrentFile().isEmpty()) {
-            return "Current file path is required";
+            return I18nUtil.get("validation.currentfile");
         }
         
         if (currentConfig.getPaths().getOutputDirectory() == null || currentConfig.getPaths().getOutputDirectory().isEmpty()) {
-            return "Output directory is required";
+            return I18nUtil.get("validation.outputdir");
         }
         
         // Check if current file exists
         File currentFile = new File(currentConfig.getPaths().getCurrentFile());
         if (!currentFile.exists()) {
-            return "Current file does not exist: " + currentFile.getAbsolutePath();
+            return I18nUtil.get("validation.filenotexist", currentFile.getAbsolutePath());
         }
         
         // Check if output directory exists or can be created
         File outputDir = new File(currentConfig.getPaths().getOutputDirectory());
         if (outputDir.exists() && !outputDir.isDirectory()) {
-            return "Output path exists but is not a directory: " + outputDir.getAbsolutePath();
+            return I18nUtil.get("validation.outputnotdir", outputDir.getAbsolutePath());
         }
         
         // Validate GitHub config if auto-upload is enabled
         if (currentConfig.getGithub() != null && currentConfig.getGithub().isAutoUpload()) {
             if (currentConfig.getGithub().getRepoUrl() == null || currentConfig.getGithub().getRepoUrl().isEmpty()) {
-                return "GitHub repository URL is required when auto-upload is enabled";
+                return I18nUtil.get("validation.github.repo");
             }
             if (currentConfig.getGithub().getToken() == null || currentConfig.getGithub().getToken().isEmpty()) {
-                return "GitHub token is required when auto-upload is enabled";
+                return I18nUtil.get("validation.github.token");
             }
         }
         

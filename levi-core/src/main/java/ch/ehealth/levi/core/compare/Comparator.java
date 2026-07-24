@@ -361,8 +361,6 @@ public class Comparator {
 	                    });
 
 	                if (hasEszettCounterpart) {
-	                    logger.info("Skipping term '{}' – ß-counterpart found in " +
-	                        "NEW_TRANSLATION_CURRENT", term);
 	                    iterator.remove();
 	                }
 	            }

@@ -1,6 +1,7 @@
 package ch.ehealth.levi.gui.service;
 
 import ch.ehealth.levi.gui.model.JobResult;
+import ch.ehealth.levi.gui.util.I18nUtil;
 import javafx.concurrent.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,18 +23,16 @@ public class JobService {
             @Override
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
-                updateMessage("Starting translation overview...");
+                updateMessage(I18nUtil.get("job.progress.overview"));
                 
                 JobResult result = new JobResult("overview");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
-                    updateMessage("Reading file...");
+                    manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
                     
                     manager.runTranslationOverview(conf.getFilePathCurrent(), conf.getDestination());
-                    
-                    updateMessage("Creating overview...");
-                    
+                                        
                     result.setManager(manager);
                     result.setSuccessful(true);
                 } catch (Exception e) {
@@ -58,20 +57,18 @@ public class JobService {
             @Override
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
-                updateMessage("Starting description additions...");
+                updateMessage(I18nUtil.get("job.progress.desc_add"));
                 
                 JobResult result = new JobResult("desc-add");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
-                    updateMessage("Reading file...");
+                    manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
                     
                     manager.runDeltaDescAdditions(conf.getFilePathCurrent(), conf.getDestination());
                     
                     result.setAdditionsCount(manager.getLastAdditionsCount());
                     result.setChangesCount(manager.getLastChangesCount());
-
-                    updateMessage("Generating additions delta...");
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
@@ -97,19 +94,19 @@ public class JobService {
             @Override
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
-                updateMessage("Starting description inactivations...");
+                updateMessage(I18nUtil.get("job.progress.desc_inact"));
                 
                 JobResult result = new JobResult("desc-inact");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
-                    updateMessage("Reading file...");
+                    updateMessage(I18nUtil.get("job.progress.reading"));
                     
                     manager.runDeltaDescInactivations(conf.getFilePathCurrent(), conf.getDestination());
                     
                     result.setInactivationsCount(manager.getLastInactivationsCount());
 
-                    updateMessage("Generating inactivations delta...");
+                    updateMessage(I18nUtil.get("job.progress.generating_inactivations"));
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
@@ -135,13 +132,13 @@ public class JobService {
             @Override
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
-                updateMessage("Starting full delta generation...");
+                updateMessage(I18nUtil.get("job.progress.delta"));
                 
                 JobResult result = new JobResult("translate-delta");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
-                    updateMessage("Reading file...");
+                    manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
                     
                     manager.runGenerateDelta(conf.getFilePathCurrent(), conf.getDestination());
                     
@@ -149,8 +146,6 @@ public class JobService {
                     result.setChangesCount(manager.getLastChangesCount());
                     result.setReactivationsCount(manager.getLastReactivationsCount());
                     result.setInactivationsCount(manager.getLastInactivationsCount());
-
-                    updateMessage("Generating complete delta...");
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
@@ -176,18 +171,16 @@ public class JobService {
             @Override
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
-                updateMessage("Starting eszett check...");
+                updateMessage(I18nUtil.get("job.progress.eszett"));
                 
                 JobResult result = new JobResult("eszett-check");
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
-                    updateMessage("Checking eszett in extension...");
+                    manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
                     
                     manager.runCheckEszettInExtension(conf.getDestination());
-                    
-                    updateMessage("Generating results...");
-                    
+                                        
                     result.setSuccessful(true);
                 } catch (Exception e) {
                     logger.error("Error in eszett check", e);
@@ -221,31 +214,28 @@ public class JobService {
             @Override
             protected JobResult call() throws Exception {
                 long startTime = System.currentTimeMillis();
-                updateMessage("Finding not published translations...");
+                updateMessage(I18nUtil.get("job.progress.not_published"));
                 
                 JobResult result = new JobResult("not-published");
                 
                 try {
                     if (preloadedManager != null) {
                         // Current file already loaded — only read the previous file.
-                        updateMessage("Reusing loaded data; reading previous file...");
+                    	preloadedManager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
                         preloadedManager.runDeltaNotPublishedTranslationsReusingCurrent(
                             conf.getFilePathPrevious(),
                             conf.getDestination()
                         );
                     } else {
                         CompareManager manager = new CompareManager(conf);
-                        updateMessage("Reading current file...");
-                        updateMessage("Reading previous file...");
+                        manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
                         manager.runDeltaNotPublishedTranslations(
                             conf.getFilePathCurrent(),
                             conf.getFilePathPrevious(),
                             conf.getDestination()
                         );
                     }
-                    
-                    updateMessage("Finding unpublished translations...");
-                    
+                                        
                     result.setSuccessful(true);
                 } catch (Exception e) {
                     logger.error("Error finding not published translations", e);

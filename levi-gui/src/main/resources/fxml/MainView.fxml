@@ -8,6 +8,9 @@
 <?import javafx.scene.text.*?>
 
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
+    <fx:define>
+        <ToggleGroup fx:id="languageToggleGroup"/>
+    </fx:define>
     <top>
         <!-- Menu Bar -->
         <VBox>
@@ -15,13 +18,14 @@
                 <Menu text="%menu.file">
                     <MenuItem text="%menu.file.exit" onAction="#exitApplication"/>
                 </Menu>
-                <Menu text="%menu.config">
-                    <MenuItem text="%menu.config.save" onAction="#saveConfiguration"/>
-                    <MenuItem text="%menu.config.load" onAction="#loadConfiguration"/>
-                    <SeparatorMenuItem/>
-                    <MenuItem text="%menu.config.restore" onAction="#restoreDefaults"/>
-                </Menu>
                 <Menu text="%menu.help">
+                    <Menu text="%menu.language">
+                        <RadioMenuItem fx:id="languageEnMenuItem" text="%menu.language.en" onAction="#switchToEnglish" toggleGroup="$languageToggleGroup"/>
+                        <RadioMenuItem fx:id="languageDeMenuItem" text="%menu.language.de" onAction="#switchToGerman" toggleGroup="$languageToggleGroup"/>
+                        <RadioMenuItem fx:id="languageFrMenuItem" text="%menu.language.fr" onAction="#switchToFrench" toggleGroup="$languageToggleGroup"/>
+                        <RadioMenuItem fx:id="languageItMenuItem" text="%menu.language.it" onAction="#switchToItalian" toggleGroup="$languageToggleGroup"/>
+                    </Menu>
+                    <SeparatorMenuItem/>
                     <MenuItem text="%menu.help.about" onAction="#showAbout"/>
                 </Menu>
             </MenuBar>
@@ -31,7 +35,7 @@
                 <ImageView fitHeight="44" fitWidth="44" preserveRatio="true">
                     <image><Image url="@../icons/android-chrome-192x192.png"/></image>
                 </ImageView>
-                <Label text="LEVI for SNOMED" style="-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;"/>
+                <Label text="%app.title" style="-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;"/>
             </HBox>
         </VBox>
     </top>
@@ -40,10 +44,10 @@
         <ScrollPane fx:id="mainScrollPane" fitToWidth="true">
             <VBox spacing="15" style="-fx-padding: 20;">
                 <!-- Configuration Section -->
-                <TitledPane text="Configuration" expanded="true" collapsible="false">
+                <TitledPane text="%config.title" expanded="true" collapsible="false">
                     <VBox spacing="10" style="-fx-padding: 10;">
                         <!-- Database Configuration -->
-                        <Label text="Database" style="-fx-font-weight: bold;"/>
+                        <Label text="%config.database" style="-fx-font-weight: bold;"/>
                         <GridPane hgap="10" vgap="10">
                             <columnConstraints>
                                 <ColumnConstraints minWidth="120" prefWidth="120"/>
@@ -51,28 +55,28 @@
                                 <ColumnConstraints minWidth="100"/>
                             </columnConstraints>
                             
-                            <Label text="DB Name:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <Label text="%config.database.name" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
                             <TextField fx:id="dbNameField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-                            <Button fx:id="dbTestButton" text="Test" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                            <Button fx:id="dbTestButton" text="%config.database.test" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
                             
-                            <Label text="Port:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <Label text="%config.database.port" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
                             <TextField fx:id="dbPortField" prefWidth="80" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
                             
-                            <Label text="Username:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <Label text="%config.database.username.label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
                             <TextField fx:id="dbUsernameField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
                             
-                            <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                            <Label text="%config.database.password.label" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
                             <PasswordField fx:id="dbPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="3" GridPane.columnSpan="2"/>
                         </GridPane>
                         
                         <Separator/>
                         
                         <!-- Settings -->
-                        <Label text="Settings" style="-fx-font-weight: bold;"/>
+                        <Label text="%config.settings" style="-fx-font-weight: bold;"/>
                         <HBox spacing="20">
-                            <CheckBox fx:id="eszettCheckBox" text="Eszett Transform (ß → ss)"/>
-                            <CheckBox fx:id="regexCheckBox" text="Regex Validation"/>
-                            <CheckBox fx:id="groupingCheckBox" text="Grouping output files"/>
+                            <CheckBox fx:id="eszettCheckBox" text="%config.settings.eszett"/>
+                            <CheckBox fx:id="regexCheckBox" text="%config.settings.regex"/>
+                            <CheckBox fx:id="groupingCheckBox" text="%config.settings.grouping"/>
                         </HBox>
 
                         <HBox spacing="10" alignment="CENTER_LEFT">
@@ -81,14 +85,14 @@
                         </HBox>
 
                         <HBox spacing="10" alignment="CENTER_LEFT">
-                            <Label text="Language Filter"/>
+                            <Label text="%config.language.filter"/>
                             <ComboBox fx:id="languageFilterComboBox" prefWidth="100"/>
                         </HBox>
 
                         <Separator/>
                         
                         <!-- File Paths -->
-                        <Label text="File Paths" style="-fx-font-weight: bold;"/>
+                        <Label text="%config.paths" style="-fx-font-weight: bold;"/>
                         <GridPane hgap="10" vgap="10">
                             <columnConstraints>
                                 <ColumnConstraints minWidth="120" prefWidth="120"/>
@@ -96,54 +100,54 @@
                                 <ColumnConstraints minWidth="100"/>
                             </columnConstraints>
                             
-                            <Label text="Current File:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <Label text="%config.paths.current.label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
                             <TextField fx:id="currentFileField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-                            <Button fx:id="currentFileBrowseButton" text="Browse..." GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                            <Button fx:id="currentFileBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
                             
-                            <Label text="Previous File:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <Label text="%config.paths.previous.label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
                             <TextField fx:id="previousFileField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-                            <Button fx:id="previousFileBrowseButton" text="Browse..." GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                            <Button fx:id="previousFileBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
                             
-                            <Label text="Output Dir:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <Label text="%config.paths.output.label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
                             <TextField fx:id="outputDirField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
-                            <Button fx:id="outputDirBrowseButton" text="Browse..." GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+                            <Button fx:id="outputDirBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
                         </GridPane>
                         
                         <Separator/>
 
                         <!-- GitHub Upload Section -->
-                        <Label text="GitHub Upload" style="-fx-font-weight: bold;"/>
+                        <Label text="%config.github" style="-fx-font-weight: bold;"/>
                         <GridPane hgap="10" vgap="10">
                             <columnConstraints>
                                 <ColumnConstraints minWidth="180" prefWidth="180"/>
                                 <ColumnConstraints hgrow="ALWAYS"/>
                             </columnConstraints>
 
-                            <Label text="Repository URL:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <Label text="%config.github.repo.label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
                             <TextField fx:id="githubRepoField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
 
-                            <Label text="Branch:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                            <TextField fx:id="githubBranchField" promptText="default branch" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            <Label text="%config.github.branch.label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="githubBranchField" promptText="%config.github.prompt.default.branch" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
-                            <Label text="Token (PAT):" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <Label text="%config.github.token.label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
                             <PasswordField fx:id="githubTokenField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
                         </GridPane>
-                        <Button fx:id="uploadGitHubButton" text="Upload current folder content to GitHub" onAction="#uploadToGitHub"/>
-                        <CheckBox fx:id="githubAutoUploadCheckBox" text="Auto-upload after job"/>
+                        <Button fx:id="uploadGitHubButton" text="%config.github.upload.button" onAction="#uploadToGitHub"/>
+                        <CheckBox fx:id="githubAutoUploadCheckBox" text="%config.github.auto"/>
 
                         <Separator/>
 
                         <!-- Config Buttons -->
                         <HBox spacing="10" alignment="CENTER">
-                            <Button fx:id="saveConfigButton" text="Save Config"/>
-                            <Button fx:id="loadConfigButton" text="Load Config"/>
-                            <Button fx:id="restoreDefaultsButton" text="Restore Defaults"/>
+                            <Button fx:id="saveConfigButton" text="%config.buttons.save"/>
+                            <Button fx:id="loadConfigButton" text="%config.buttons.load"/>
+                            <Button fx:id="restoreDefaultsButton" text="%config.buttons.restore"/>
                         </HBox>
                     </VBox>
                 </TitledPane>
                 
                 <!-- Jobs Section -->
-                <TitledPane text="Jobs" expanded="true" collapsible="false">
+                <TitledPane text="%jobs.title" expanded="true" collapsible="false">
                     <VBox spacing="10" style="-fx-padding: 10;">
                         <!-- Job Selection Buttons -->
                         <GridPane hgap="10" vgap="10">
@@ -153,17 +157,17 @@
                                 <ColumnConstraints percentWidth="33.3"/>
                             </columnConstraints>
                             
-                            <Button fx:id="overviewButton" text="Translation Overview" 
+                            <Button fx:id="overviewButton" text="%jobs.overview" 
                                     maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                            <Button fx:id="descAddButton" text="New Descriptions" 
+                            <Button fx:id="descAddButton" text="%jobs.desc_add" 
                                     maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-                            <Button fx:id="descInactButton" text="Inactivations" 
+                            <Button fx:id="descInactButton" text="%jobs.desc_inact" 
                                     maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
-                            <Button fx:id="translateDeltaButton" text="Complete Delta" 
+                            <Button fx:id="translateDeltaButton" text="%jobs.translate_delta" 
                                     maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                            <Button fx:id="eszettCheckButton" text="Eszett Check" 
+                            <Button fx:id="eszettCheckButton" text="%jobs.eszett_check" 
                                     maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-                            <Button fx:id="notPublishedButton" text="Unpublished Translations" 
+                            <Button fx:id="notPublishedButton" text="%jobs.not_published" 
                                     maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
                         </GridPane>
                         
@@ -171,24 +175,24 @@
                         
                         <!-- Job Control -->
                         <HBox spacing="10" alignment="CENTER">
-                            <Button fx:id="startButton" text="▶ Start" style="-fx-font-weight: bold;"/>
-                            <Button fx:id="cancelButton" text="⏹ Cancel" disable="true"/>
+                            <Button fx:id="startButton" text="%jobs.button.start" style="-fx-font-weight: bold;"/>
+                            <Button fx:id="cancelButton" text="%jobs.button.cancel" disable="true"/>
                         </HBox>
                         
                         <!-- Progress -->
                         <VBox spacing="5">
                             <ProgressBar fx:id="progressBar" prefWidth="Infinity" progress="0"/>
-                            <Label fx:id="statusLabel" text="Idle"/>
+                            <Label fx:id="statusLabel" text="%jobs.status.idle"/>
                             <Label fx:id="runtimeLabel" text=""/>
                         </VBox>
                     </VBox>
                 </TitledPane>
                 
                 <!-- Results Section -->
-                <TitledPane text="Results" expanded="true" collapsible="false">
+                <TitledPane text="%results.title" expanded="true" collapsible="false">
                     <TabPane fx:id="resultsTabPane" tabClosingPolicy="UNAVAILABLE" prefHeight="300">
                         <!-- Progress Tab -->
-                        <Tab text="Progress">
+                        <Tab text="%results.tab.progress">
                             <ScrollPane fitToWidth="true" fitToHeight="true">
                                 <TextArea fx:id="statisticsArea" editable="false" 
                                          style="-fx-font-family: 'Courier New'; -fx-font-size: 14px;"
@@ -197,11 +201,11 @@
                         </Tab>
                         
                         <!-- Log Tab -->
-                        <Tab text="Log">
+                        <Tab text="%log.title">
                             <VBox spacing="5" style="-fx-padding: 5;">
                                 <HBox spacing="10">
-                                    <Button text="Clear Log" onAction="#clearLog"/>
-                                    <Button text="Save Log" onAction="#saveLog"/>
+                                    <Button text="%log.clear" onAction="#clearLog"/>
+                                    <Button text="%log.save" onAction="#saveLog"/>
                                 </HBox>
                                 <ScrollPane fitToWidth="true" fitToHeight="true">
                                     <TextArea fx:id="logArea" editable="false" 
@@ -219,10 +223,10 @@
     <bottom>
         <!-- Status Bar -->
         <HBox spacing="20" style="-fx-padding: 5; -fx-background-color: #f0f0f0; -fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;">
-            <Label fx:id="statusBarLabel" text="Idle"/>
+            <Label fx:id="statusBarLabel" text="%status.idle"/>
             <Separator orientation="VERTICAL"/>
-            <Label text="DB:"/>
-            <Label fx:id="dbStatusLabel" text="Not Connected"/>
+            <Label text="%status.db.label"/>
+            <Label fx:id="dbStatusLabel" text="%status.db.disconnected"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="lastJobLabel" text=""/>
         </HBox>

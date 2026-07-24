@@ -1,6 +1,7 @@
 package ch.ehealth.levi.gui.service;
 
 import ch.ehealth.levi.gui.model.AppConfig.GitHubConfig;
+import ch.ehealth.levi.gui.util.I18nUtil;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.RefNotFoundException;
 import org.eclipse.jgit.transport.CredentialsProvider;
@@ -29,10 +30,10 @@ public class GitHubUploadService {
 
     public String uploadResults(String outputDirPath, GitHubConfig config) throws Exception {
         if (config.getRepoUrl() == null || config.getRepoUrl().trim().isEmpty()) {
-            return "No repository URL configured";
+            return I18nUtil.get("github.error.norepo");
         }
         if (config.getToken() == null || config.getToken().trim().isEmpty()) {
-            return "No GitHub token configured";
+            return I18nUtil.get("github.error.notoken");
         }
 
         configureProxy();
@@ -94,7 +95,7 @@ public class GitHubUploadService {
 
             Path outputDir = Paths.get(outputDirPath);
             if (!Files.exists(outputDir) || !Files.isDirectory(outputDir)) {
-                return "Output directory does not exist: " + outputDirPath;
+                return I18nUtil.get("github.error.nodir", outputDirPath);
             }
 
             int fileCount = 0;
@@ -115,7 +116,7 @@ public class GitHubUploadService {
             }
 
             if (fileCount == 0) {
-                return "No TSV or XLSX files found in: " + outputDirPath;
+                return I18nUtil.get("github.error.nofiles", outputDirPath);
             }
 
             git.add().addFilepattern(".").call();
@@ -135,7 +136,7 @@ public class GitHubUploadService {
 
             git.close();
 
-            return String.format("Uploaded %d files to %s (branch: %s)", fileCount, repoUrl, resolvedBranch);
+            return String.format(I18nUtil.get("github.upload.success"), fileCount, repoUrl, resolvedBranch);
         } finally {
             uploading = false;
         }

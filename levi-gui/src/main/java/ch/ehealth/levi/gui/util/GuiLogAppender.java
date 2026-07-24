@@ -15,8 +15,8 @@ import java.time.format.DateTimeFormatter;
  * A Logback appender that forwards log messages to the GUI's log TextArea.
  *
  * Rules:
- *  - All messages from translation.check.* are shown (the LEVI core).
- *  - WARN and ERROR from any other logger are shown (so GUI errors are visible).
+ *  - INFO and above from ch.ehealth.levi.core.* (LEVI core progress) is shown.
+ *  - WARN and ERROR from any logger are shown (so GUI errors are visible).
  *  - Everything else is suppressed to keep the log area readable.
  *
  * Wire the TextArea once at startup via {@link #setLogArea(TextArea)}.
@@ -38,10 +38,10 @@ public class GuiLogAppender extends AppenderBase<ILoggingEvent> {
         if (logArea == null) return;
 
         String loggerName = event.getLoggerName();
-        boolean isLeviCore = loggerName.startsWith("translation.check");
+        boolean isCoreProgress = loggerName.startsWith("ch.ehealth.levi.core");
         boolean isWarnOrAbove = event.getLevel().isGreaterOrEqual(Level.WARN);
 
-        if (!isLeviCore && !isWarnOrAbove) return;
+        if (!isCoreProgress && !isWarnOrAbove) return;
 
         String time = LocalTime.ofInstant(
                 Instant.ofEpochMilli(event.getTimeStamp()),

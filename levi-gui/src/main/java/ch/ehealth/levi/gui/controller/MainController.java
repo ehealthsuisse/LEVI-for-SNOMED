@@ -11,6 +11,9 @@ import ch.ehealth.levi.gui.util.I18nUtil;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -23,12 +26,14 @@ import ch.ehealth.levi.core.Conf;
 import ch.ehealth.levi.core.DbConnection;
 
 import java.io.File;
+import java.io.IOException;
 import java.sql.Connection;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -104,6 +109,13 @@ public class MainController {
     @FXML private Label dbStatusLabel;
     @FXML private Label lastJobLabel;
     
+    // Language menu
+    @FXML private RadioMenuItem languageEnMenuItem;
+    @FXML private RadioMenuItem languageDeMenuItem;
+    @FXML private RadioMenuItem languageFrMenuItem;
+    @FXML private RadioMenuItem languageItMenuItem;
+    @FXML private ToggleGroup languageToggleGroup;
+    
     // State
     private Task<JobResult> currentTask;
     private final List<String> selectedJobTypes = new ArrayList<>();
@@ -119,10 +131,8 @@ public class MainController {
     public void initialize() {
         logger.info("Initializing MainController");
         
-        // Set up tooltips
         setupTooltips();
         
-        // Populate country code dropdown from Conf (before updateUIFromConfig)
         countryCodeComboBox.getItems().setAll(ch.ehealth.levi.core.Conf.getAvailableCountryCodes());
         countryCodeComboBox.getSelectionModel().selectedItemProperty()
                 .addListener((obs, old, val) -> {
@@ -131,24 +141,75 @@ public class MainController {
                     }
                 });
 
-        // Populate language filter dropdown
-        languageFilterComboBox.getItems().setAll("All", "de", "fr", "it");
+        languageFilterComboBox.getItems().setAll(I18nUtil.get("language.filter.all"), "de", "fr", "it");
 
-        // Load last configuration
         configService.loadLastConfig();
         updateUIFromConfig();
         
-        // Set up event handlers
         setupEventHandlers();
 
-        // Initialize UI state
         updateJobButtonsState();
         updateStatusBar();
 
-        // Wire GUI log appender so LEVI core logs appear in the log area
         GuiLogAppender.setLogArea(logArea);
 
+        selectLanguageMenuItem();
+
         logger.info("MainController initialized");
+    }
+
+    private void selectLanguageMenuItem() {
+        String lang = I18nUtil.getCurrentLocale().getLanguage();
+        switch (lang) {
+            case "de": languageDeMenuItem.setSelected(true); break;
+            case "fr": languageFrMenuItem.setSelected(true); break;
+            case "it": languageItMenuItem.setSelected(true); break;
+            default:   languageEnMenuItem.setSelected(true); break;
+        }
+    }
+    
+    @FXML
+    private void switchToEnglish() {
+        switchLanguage("en");
+    }
+    
+    @FXML
+    private void switchToGerman() {
+        switchLanguage("de");
+    }
+    
+    @FXML
+    private void switchToFrench() {
+        switchLanguage("fr");
+    }
+    
+    @FXML
+    private void switchToItalian() {
+        switchLanguage("it");
+    }
+    
+    private void switchLanguage(String languageCode) {
+        I18nUtil.setLocaleByLanguageCode(languageCode);
+        I18nUtil.saveLanguagePreference(languageCode);
+        reloadScene();
+    }
+    
+    private void reloadScene() {
+        try {
+            FXMLLoader loader = new FXMLLoader();
+            loader.setLocation(getClass().getResource("/fxml/MainView.fxml"));
+            loader.setResources(I18nUtil.getResourceBundle());
+            MainController controller = new MainController();
+            loader.setController(controller);
+            Parent root = loader.load();
+            Scene scene = new Scene(root, stage.getWidth(), stage.getHeight());
+            scene.getStylesheets().add(getClass().getResource("/css/styles.css").toExternalForm());
+            stage.setTitle(I18nUtil.get("app.title"));
+            stage.setScene(scene);
+            controller.setStage(stage);
+        } catch (IOException e) {
+            logger.error("Failed to reload scene after language change", e);
+        }
     }
     
     private void updateLanguageFilterItems(String countryCode) {
@@ -156,7 +217,7 @@ public class MainController {
         String currentValue = languageFilterComboBox.getValue();
         List<String> items = new ArrayList<>();
         if (validLanguages.size() > 1) {
-            items.add("All");
+            items.add(I18nUtil.get("language.filter.all"));
         }
         validLanguages.stream().sorted().forEach(items::add);
         languageFilterComboBox.getItems().setAll(items);
@@ -165,17 +226,17 @@ public class MainController {
         } else if (currentValue != null && items.contains(currentValue)) {
             languageFilterComboBox.setValue(currentValue);
         } else {
-            languageFilterComboBox.setValue("All");
+            languageFilterComboBox.setValue(I18nUtil.get("language.filter.all"));
         }
     }
 
     private void setupTooltips() {
-        dbNameField.setTooltip(new Tooltip("Database name, e.g. SCT:CH_Dec25"));
-        dbPortField.setTooltip(new Tooltip("MySQL port, default 3306"));
+        dbNameField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.name")));
+        dbPortField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.port")));
         dbUsernameField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.username")));
         dbPasswordField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.password")));
         countryCodeComboBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.country")));
-        languageFilterComboBox.setTooltip(new Tooltip("Filter delta to a specific language, or leave as 'All'"));
+        languageFilterComboBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.language.filter")));
         eszettCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.eszett")));
         regexCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.regex")));
         groupingCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.grouping")));
@@ -185,20 +246,16 @@ public class MainController {
     }
     
     private void setupEventHandlers() {
-        // Database test button
         dbTestButton.setOnAction(e -> testDatabaseConnection());
         
-        // File browsers
-        currentFileBrowseButton.setOnAction(e -> browseFile(currentFileField, "Select Current File"));
-        previousFileBrowseButton.setOnAction(e -> browseFile(previousFileField, "Select Previous File"));
-        outputDirBrowseButton.setOnAction(e -> browseDirectory(outputDirField, "Select Output Directory"));
+        currentFileBrowseButton.setOnAction(e -> browseFile(currentFileField, I18nUtil.get("filechooser.current")));
+        previousFileBrowseButton.setOnAction(e -> browseFile(previousFileField, I18nUtil.get("filechooser.previous")));
+        outputDirBrowseButton.setOnAction(e -> browseDirectory(outputDirField, I18nUtil.get("filechooser.output")));
         
-        // Config buttons
         saveConfigButton.setOnAction(e -> saveConfiguration());
         loadConfigButton.setOnAction(e -> loadConfiguration());
         restoreDefaultsButton.setOnAction(e -> restoreDefaults());
         
-        // Job buttons
         overviewButton.setOnAction(e -> selectJob("overview"));
         descAddButton.setOnAction(e -> selectJob("desc-add"));
         descInactButton.setOnAction(e -> selectJob("desc-inact"));
@@ -206,14 +263,11 @@ public class MainController {
         eszettCheckButton.setOnAction(e -> selectJob("eszett-check"));
         notPublishedButton.setOnAction(e -> selectJob("not-published"));
         
-        // Start/Cancel buttons
         startButton.setOnAction(e -> startJob());
         cancelButton.setOnAction(e -> cancelJob());
         
-        // GitHub upload button
         uploadGitHubButton.setOnAction(e -> uploadToGitHub());
 
-        // Update config when fields change
         dbNameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbPortField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbUsernameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
@@ -232,7 +286,6 @@ public class MainController {
             validateConfiguration();
         });
 
-        // GitHub field listeners
         githubRepoField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         githubBranchField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         githubTokenField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
@@ -272,7 +325,6 @@ public class MainController {
             suppressConfigUpdates = false;
         }
         
-        // Do ONE explicit sync afterward, now that everything is consistent in the UI
         validateConfiguration();
     }
     
@@ -287,7 +339,6 @@ public class MainController {
         try {
             config.getDatabase().setDbPort(Integer.parseInt(dbPortField.getText().trim()));
         } catch (NumberFormatException ignored) {
-            // keep previous port if input is not a valid number
         }
         config.getDatabase().setUsername(dbUsernameField.getText());
         config.getDatabase().setPassword(dbPasswordField.getText());
@@ -353,15 +404,14 @@ public class MainController {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle(title);
         fileChooser.getExtensionFilters().addAll(
-            new FileChooser.ExtensionFilter("All Supported Files", "*.csv", "*.tsv", "*.xlsx", "*.xls", "*.json"),
-            new FileChooser.ExtensionFilter("CSV Files", "*.csv"),
-            new FileChooser.ExtensionFilter("TSV Files", "*.tsv"),
-            new FileChooser.ExtensionFilter("Excel Files", "*.xlsx", "*.xls"),
-            new FileChooser.ExtensionFilter("JSON Files", "*.json"),
-            new FileChooser.ExtensionFilter("All Files", "*.*")
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.all.supported"), "*.csv", "*.tsv", "*.xlsx", "*.xls", "*.json"),
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.csv"), "*.csv"),
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.tsv"), "*.tsv"),
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.excel"), "*.xlsx", "*.xls"),
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.json"), "*.json"),
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.all.files"), "*.*")
         );
         
-        // Set initial directory if field has a value
         String currentPath = targetField.getText();
         if (currentPath != null && !currentPath.isEmpty()) {
             File currentFile = new File(currentPath);
@@ -380,7 +430,6 @@ public class MainController {
         DirectoryChooser dirChooser = new DirectoryChooser();
         dirChooser.setTitle(title);
         
-        // Set initial directory if field has a value
         String currentPath = targetField.getText();
         if (currentPath != null && !currentPath.isEmpty()) {
             File currentDir = new File(currentPath);
@@ -400,9 +449,9 @@ public class MainController {
         updateConfigFromUI();
         
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Save Configuration");
+        fileChooser.setTitle(I18nUtil.get("filechooser.save.config"));
         fileChooser.getExtensionFilters().add(
-            new FileChooser.ExtensionFilter("JSON Files", "*.json")
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.json"), "*.json")
         );
         fileChooser.setInitialFileName("levi-config.json");
         
@@ -423,9 +472,9 @@ public class MainController {
     @FXML
     private void loadConfiguration() {
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Load Configuration");
+        fileChooser.setTitle(I18nUtil.get("filechooser.load.config"));
         fileChooser.getExtensionFilters().add(
-            new FileChooser.ExtensionFilter("JSON Files", "*.json")
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.json"), "*.json")
         );
         
         File file = fileChooser.showOpenDialog(stage);
@@ -446,9 +495,9 @@ public class MainController {
     @FXML
     private void restoreDefaults() {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Restore Defaults");
-        alert.setHeaderText("Restore default configuration?");
-        alert.setContentText("This will reset all settings to their default values.");
+        alert.setTitle(I18nUtil.get("dialog.restore.title"));
+        alert.setHeaderText(I18nUtil.get("dialog.restore.header"));
+        alert.setContentText(I18nUtil.get("dialog.restore.content"));
         
         alert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
@@ -470,22 +519,23 @@ public class MainController {
     
     private void startJob() {
         if (selectedJobTypes.isEmpty()) {
-            showWarning("No Job Selected", "Please select at least one job to run.");
+            showWarning(I18nUtil.get("dialog.job.none.title"), 
+                       I18nUtil.get("dialog.job.none.content"));
             return;
         }
         
-        // Validate configuration
         updateConfigFromUI();
         String validationError = configService.validateConfig();
         if (validationError != null) {
-            showError("Configuration Error", validationError);
+            showError(I18nUtil.get("dialog.config.error.title"), validationError);
             return;
         }
         
         File outputDir = new File(configService.getCurrentConfig().getPaths().getOutputDirectory());
         if (!outputDir.exists()) {
             if (!outputDir.mkdirs()) {
-                showError("Configuration Error", "Cannot create output directory: " + outputDir.getAbsolutePath());
+                showError(I18nUtil.get("dialog.config.error.title"), 
+                         I18nUtil.get("dialog.config.error.output", outputDir.getAbsolutePath()));
                 return;
             }
         }
@@ -508,14 +558,14 @@ public class MainController {
             case "translate-delta": task = jobService.createTranslateDeltaTask(conf);   break;
             case "eszett-check":    task = jobService.createEszettCheckTask(conf);       break;
             case "not-published": {
-                // Reuse the manager from the previous job if it already loaded the current file
             	ch.ehealth.levi.core.compare.CompareManager preloaded =
                         (prevResult != null) ? prevResult.getManager() : null;
                 task = jobService.createNotPublishedTask(conf, preloaded);
                 break;
             }
             default:
-                showError("Unknown Job", "Unknown job type: " + jobType);
+                showError(I18nUtil.get("dialog.job.unknown.title"), 
+                         I18nUtil.get("dialog.job.unknown.content", jobType));
                 updateJobRunningState(false);
                 updateJobButtonsState();
                 return;
@@ -523,13 +573,14 @@ public class MainController {
 
         currentTask = task;
 
-        // Switch to Progress tab and show starting message
         statisticsArea.clear();
         String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
         if (queue.size() > 1) {
-            appendProgress("[" + ts + "] Starting job " + (index + 1) + "/" + queue.size() + ": " + jobType);
+            appendProgress("[" + ts + "] " + 
+                I18nUtil.get("jobs.progress.starting.queue", index + 1, queue.size(), getJobDisplayName(jobType)));
         } else {
-            appendProgress("[" + ts + "] Starting: " + jobType);
+            appendProgress("[" + ts + "] " + 
+                I18nUtil.get("jobs.progress.starting", getJobDisplayName(jobType)));
         }
         resultsTabPane.getSelectionModel().select(0);
         Platform.runLater(() -> mainScrollPane.setVvalue(1.0));
@@ -543,36 +594,33 @@ public class MainController {
     }
     
     private void setupTaskHandlers(Task<JobResult> task, List<String> queue, int index) {
-        // Pipe task status messages to Progress tab in real time
         task.messageProperty().addListener((obs, oldMsg, newMsg) -> {
             if (newMsg != null && !newMsg.isEmpty()) {
                 appendProgress(newMsg);
             }
         });
 
-        // Progress bar — indeterminate (no fake percentages)
         progressBar.setProgress(-1);
         statusLabel.textProperty().bind(task.messageProperty());
 
-        // Success
         task.setOnSucceeded(e -> {
             JobResult result = task.getValue();
             currentTask = null;
             String doneTs = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-            appendProgress("[" + doneTs + "] " + (result.isSuccessful() ? "Completed" : "Failed")
-                    + " (" + formatDuration(result.getExecutionTimeMs() / 1000) + ")");
+            String statusText = result.isSuccessful() ? 
+                I18nUtil.get("jobs.progress.completed") : I18nUtil.get("jobs.progress.failed.status");
+            appendProgress("[" + doneTs + "] " + statusText 
+                + " (" + formatDuration(result.getExecutionTimeMs() / 1000) + ")");
             displayResult(result);
             progressBar.setProgress(0);
             statusLabel.textProperty().unbind();
             updateLastJobStatus(result);
             if (index + 1 < queue.size()) {
-                // Chain to next job in queue
                 startRuntimeUpdater();
                 Platform.runLater(() -> runNextJob(queue, index + 1, result));
             } else {
                 updateJobRunningState(false);
                 updateJobButtonsState();
-                // Auto-upload to GitHub if enabled
                 if (result.isSuccessful() && configService.getCurrentConfig().getGithub() != null
                         && configService.getCurrentConfig().getGithub().isAutoUpload()) {
                     updateConfigFromUI();
@@ -581,23 +629,22 @@ public class MainController {
             }
         });
 
-        // Failure
         task.setOnFailed(e -> {
             Throwable ex = task.getException();
             logger.error("Job failed", ex);
             currentTask = null;
-            appendProgress("ERROR: " + (ex != null ? ex.getMessage() : "unknown error"));
+            appendProgress(I18nUtil.get("jobs.progress.error", ex != null ? ex.getMessage() : "unknown error"));
             progressBar.setProgress(0);
             statusLabel.textProperty().unbind();
             updateJobRunningState(false);
             updateJobButtonsState();
-            showError("Job Failed", "Job failed: " + (ex != null ? ex.getMessage() : "unknown error"));
+            showError(I18nUtil.get("dialog.job.failed.title"), 
+                     I18nUtil.get("dialog.job.failed.content", ex != null ? ex.getMessage() : "unknown error"));
         });
 
-        // Cancelled
         task.setOnCancelled(e -> {
             currentTask = null;
-            appendProgress("Job cancelled");
+            appendProgress(I18nUtil.get("jobs.progress.cancelled"));
             progressBar.setProgress(0);
             statusLabel.textProperty().unbind();
             updateJobRunningState(false);
@@ -614,24 +661,24 @@ public class MainController {
     
     private void displayResult(JobResult result) {
         StringBuilder stats = new StringBuilder();
-        stats.append("=== ").append(result.getJobType()).append(" ===\n\n");
+        stats.append(I18nUtil.get("results.statistics.header", result.getJobType())).append("\n\n");
         
         if (result.isSuccessful()) {
-            stats.append("Successful\n\n");
+            stats.append(I18nUtil.get("results.statistics.success")).append("\n\n");
             
-            stats.append("Additions:    ").append(result.getAdditionsCount()).append("\n");
-            stats.append("Changes:      ").append(result.getChangesCount()).append("\n");
-            stats.append("Inactivations: ").append(result.getInactivationsCount()).append("\n");
-            stats.append("Reactivations: ").append(result.getReactivationsCount()).append("\n\n");
+            stats.append(I18nUtil.get("results.statistics.additions")).append("   ").append(result.getAdditionsCount()).append("\n");
+            stats.append(I18nUtil.get("results.statistics.changes")).append("     ").append(result.getChangesCount()).append("\n");
+            stats.append(I18nUtil.get("results.statistics.inactivations")).append(" ").append(result.getInactivationsCount()).append("\n");
+            stats.append(I18nUtil.get("results.statistics.reactivations")).append(" ").append(result.getReactivationsCount()).append("\n\n");
             
-            stats.append("Errors:   ").append(result.getErrorsCount()).append("\n");
-            stats.append("Warnings: ").append(result.getWarningsCount()).append("\n\n");
+            stats.append(I18nUtil.get("results.statistics.errors")).append("  ").append(result.getErrorsCount()).append("\n");
+            stats.append(I18nUtil.get("results.statistics.warnings")).append(" ").append(result.getWarningsCount()).append("\n\n");
             
             long seconds = result.getExecutionTimeMs() / 1000;
-            stats.append("Runtime: ").append(formatDuration(seconds)).append("\n");
+            stats.append(I18nUtil.get("results.display.runtime", formatDuration(seconds))).append("\n");
         } else {
-            stats.append("Failed\n\n");
-            stats.append("Error: ").append(result.getErrorMessage()).append("\n");
+            stats.append(I18nUtil.get("results.statistics.failure")).append("\n\n");
+            stats.append(I18nUtil.get("results.statistics.error.label", result.getErrorMessage())).append("\n");
         }
         
         statisticsArea.appendText(stats.toString());
@@ -641,12 +688,12 @@ public class MainController {
     private void updateJobButtonsState() {
         startButton.setDisable(selectedJobTypes.isEmpty() || currentTask != null);
 
-        updateJobButton(overviewButton,       "Translation Overview",    "overview");
-        updateJobButton(descAddButton,        "New Descriptions",        "desc-add");
-        updateJobButton(descInactButton,      "Inactivations",           "desc-inact");
-        updateJobButton(translateDeltaButton, "Complete Delta",          "translate-delta");
-        updateJobButton(eszettCheckButton,    "Eszett Check",            "eszett-check");
-        updateJobButton(notPublishedButton,   "Unpublished Translations", "not-published");
+        updateJobButton(overviewButton,       I18nUtil.get("jobs.overview"),       "overview");
+        updateJobButton(descAddButton,        I18nUtil.get("jobs.desc_add"),        "desc-add");
+        updateJobButton(descInactButton,      I18nUtil.get("jobs.desc_inact"),      "desc-inact");
+        updateJobButton(translateDeltaButton, I18nUtil.get("jobs.translate_delta"), "translate-delta");
+        updateJobButton(eszettCheckButton,    I18nUtil.get("jobs.eszett_check"),    "eszett-check");
+        updateJobButton(notPublishedButton,   I18nUtil.get("jobs.not_published"),   "not-published");
     }
 
     private void updateJobButton(Button btn, String baseLabel, String jobType) {
@@ -660,6 +707,18 @@ public class MainController {
         }
     }
     
+    private String getJobDisplayName(String jobType) {
+        switch (jobType) {
+            case "overview":        return I18nUtil.get("jobs.overview");
+            case "desc-add":        return I18nUtil.get("jobs.desc_add");
+            case "desc-inact":      return I18nUtil.get("jobs.desc_inact");
+            case "translate-delta": return I18nUtil.get("jobs.translate_delta");
+            case "eszett-check":    return I18nUtil.get("jobs.eszett_check");
+            case "not-published":   return I18nUtil.get("jobs.not_published");
+            default:                return jobType;
+        }
+    }
+    
     private void updateJobRunningState(boolean running) {
         startButton.setDisable(running);
         cancelButton.setDisable(!running);
@@ -669,7 +728,7 @@ public class MainController {
             progressBar.setProgress(-1);
         } else {
             progressBar.setProgress(0);
-            statusLabel.setText("Idle");
+            statusLabel.setText(I18nUtil.get("jobs.status.idle"));
             runtimeLabel.setText("");
         }
     }
@@ -680,7 +739,7 @@ public class MainController {
                 long elapsed = System.currentTimeMillis() - jobStartTime;
                 long seconds = elapsed / 1000;
                 Platform.runLater(() -> {
-                    runtimeLabel.setText("Runtime: " + formatDuration(seconds));
+                    runtimeLabel.setText(I18nUtil.get("jobs.progress.runtime", formatDuration(seconds)));
                 });
                 
                 try {
@@ -704,15 +763,13 @@ public class MainController {
     private void validateConfiguration() {
         String error = configService.validateConfig();
         
-        // Update field styles based on validation
         currentFileField.setStyle(currentFileField.getText().isEmpty() ? "-fx-border-color: red;" : "");
         outputDirField.setStyle(outputDirField.getText().isEmpty() ? "-fx-border-color: red;" : "");
     }
     
     private void updateStatusBar() {
-        statusBarLabel.setText("Idle");
+        statusBarLabel.setText(I18nUtil.get("status.idle"));
         
-        // Test DB connection in background
         Task<Boolean> dbTest = new Task<Boolean>() {
             @Override
             protected Boolean call() throws Exception {
@@ -747,10 +804,11 @@ public class MainController {
     }
     
     private void updateLastJobStatus(JobResult result) {
-        String status = result.isSuccessful() ? "Successful" : "Failed";
+        String status = result.isSuccessful() ? 
+            I18nUtil.get("jobs.status.success") : I18nUtil.get("jobs.status.failed");
         long seconds = result.getExecutionTimeMs() / 1000;
-        lastJobLabel.setText("Last Job: " + result.getJobType() + ", "
-                + formatDuration(seconds) + ", " + status);
+        lastJobLabel.setText(I18nUtil.get("status.lastjob", 
+            getJobDisplayName(result.getJobType()), formatDuration(seconds), status));
     }
     
     @FXML
@@ -759,47 +817,49 @@ public class MainController {
         GitHubConfig gitHubConfig = configService.getCurrentConfig().getGithub();
 
         if (gitHubConfig == null || gitHubConfig.getRepoUrl() == null || gitHubConfig.getRepoUrl().isEmpty()) {
-            showWarning("GitHub Upload", "No repository configured. Set your repo in Configuration → GitHub Upload.");
+            showWarning(I18nUtil.get("dialog.job.none.title"), 
+                       I18nUtil.get("github.dialog.norepo"));
             return;
         }
 
         String outputDir = configService.getCurrentConfig().getPaths().getOutputDirectory();
         if (outputDir == null || outputDir.isEmpty()) {
-            showWarning("GitHub Upload", "No output directory configured.");
+            showWarning(I18nUtil.get("dialog.job.none.title"), 
+                       I18nUtil.get("github.dialog.nooutput"));
             return;
         }
 
         if (gitHubUploadService.isUploading()) {
-            logMessage("Upload already in progress...");
+            logMessage(I18nUtil.get("github.upload.inprogress"));
             return;
         }
 
         Task<String> uploadTask = new Task<String>() {
             @Override
             protected String call() throws Exception {
-                updateMessage("Uploading results to GitHub...");
+                updateMessage(I18nUtil.get("github.upload.start"));
                 return gitHubUploadService.uploadResults(outputDir, gitHubConfig);
             }
         };
 
         uploadTask.setOnSucceeded(e -> {
             String result = uploadTask.getValue();
-            logMessage("✅ " + result);
-            statusLabel.setText("Upload complete");
+            logMessage("\u2705 " + result);
+            statusLabel.setText(I18nUtil.get("github.upload.complete"));
             uploadGitHubButton.setDisable(false);
         });
 
         uploadTask.setOnFailed(e -> {
             Throwable ex = uploadTask.getException();
             String msg = (ex != null) ? ex.getMessage() : "Unknown error";
-            logMessage("❌ GitHub upload failed: " + msg);
-            statusLabel.setText("Upload failed");
+            logMessage("\u274C " + I18nUtil.get("github.upload.failed") + ": " + msg);
+            statusLabel.setText(I18nUtil.get("github.upload.failed.status"));
             uploadGitHubButton.setDisable(false);
         });
 
         uploadGitHubButton.setDisable(true);
-        logMessage("Starting GitHub upload...");
-        statusLabel.setText("Uploading to GitHub...");
+        logMessage(I18nUtil.get("github.upload.starting"));
+        statusLabel.setText(I18nUtil.get("github.upload.status.uploading"));
 
         Thread thread = new Thread(uploadTask);
         thread.setDaemon(true);
@@ -866,20 +926,15 @@ public class MainController {
             }
         });
 
-        javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(8);
+        VBox content = new VBox(8);
         content.getChildren().addAll(
-            new javafx.scene.control.Label(
-                "Language and Extension Validation & Import for SNOMED\n\n" +
-                "© " + year + " eHealth Suisse\n\n" +
-                "This application provides a desktop GUI for managing SNOMED CT " +
-                "translation validation and delta generation.\n"
-            ),
+            new Label(I18nUtil.get("about.content", year).replace("\\n", "\n")),
             link
         );
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("About LEVI for SNOMED");
-        alert.setHeaderText("LEVI for SNOMED - Version 1.0.0");
+        alert.setTitle(I18nUtil.get("about.title"));
+        alert.setHeaderText(I18nUtil.get("about.header", "2.0.0"));
         alert.getDialogPane().setContent(content);
         alert.showAndWait();
     }
@@ -892,9 +947,9 @@ public class MainController {
     @FXML
     private void saveLog() {
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Save Log");
+        fileChooser.setTitle(I18nUtil.get("filechooser.save.log"));
         fileChooser.getExtensionFilters().add(
-            new FileChooser.ExtensionFilter("Log Files", "*.log", "*.txt")
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.log"), "*.log", "*.txt")
         );
         fileChooser.setInitialFileName("levi-log.txt");
         
@@ -902,10 +957,12 @@ public class MainController {
         if (file != null) {
             try {
                 java.nio.file.Files.writeString(file.toPath(), logArea.getText());
-                showInfo("Success", "Log saved successfully");
+                showInfo(I18nUtil.get("success.title"), 
+                        I18nUtil.get("log.save.success"));
             } catch (Exception e) {
                 logger.error("Error saving log", e);
-                showError("Error", "Failed to save log: " + e.getMessage());
+                showError(I18nUtil.get("error.title"), 
+                         I18nUtil.get("log.save.failed", e.getMessage()));
             }
         }
     }
