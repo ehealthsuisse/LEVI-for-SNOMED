@@ -70,6 +70,46 @@ public class DbConnection {
 	}
 
 	/**
+	 * Validates that the language refset IDs configured for the selected country
+	 * code actually exist in the database. Throws a descriptive error if any are
+	 * missing, catching country-code / SNOMED-extension mismatches early.
+	 */
+	public void validateRefsetIds() {
+		Set<String> languages = conf.getLocalLanguages();
+		List<String> refSetIds = new ArrayList<>();
+		for (String lang : languages) {
+			String id = conf.getLanguageRefSetId(lang);
+			if (id != null)
+				refSetIds.add("'" + id + "'");
+		}
+		if (refSetIds.isEmpty()) {
+			throw new IllegalArgumentException(
+					"No language refset IDs found for country code '" + conf.getCountryCode()
+							+ "'. Cannot verify database compatibility.");
+		}
+		String sql = "SELECT DISTINCT refsetId FROM full_refset_Language WHERE refsetId IN ("
+				+ String.join(",", refSetIds) + ")";
+		try (Statement stmt = connection.createStatement();
+				ResultSet rs = stmt.executeQuery(sql)) {
+			Set<String> found = new HashSet<>();
+			while (rs.next())
+				found.add("'" + rs.getString("refsetId") + "'");
+			Set<String> missing = new HashSet<>(refSetIds);
+			missing.removeAll(found);
+			if (!missing.isEmpty()) {
+				throw new IllegalArgumentException(
+						"Country code '" + conf.getCountryCode() + "' is configured with language refset ID(s) "
+								+ missing + ", but these do not exist in the database at "
+								+ conf.getSERVER_URL() + ". "
+								+ "The selected country code must match the SNOMED extension loaded in the database.");
+			}
+		} catch (SQLException e) {
+			throw new IllegalArgumentException(
+					"Failed to validate refset IDs for country '" + conf.getCountryCode() + "': " + e.getMessage(), e);
+		}
+	}
+
+	/**
 	 * Searches for translations in the specified language, processes the results,
 	 * and populates the `translated` list in the Compare class.
 	 * 
@@ -82,6 +122,7 @@ public class DbConnection {
 	 */
 	public void searchTranslations(Set<String> conceptIDs) throws SQLException, UnsupportedEncodingException, ClassNotFoundException {
 		connect();
+		validateRefsetIds();
 
 		Set<String> languages = conf.getLocalLanguages();
 		List<String> refSetIds = new ArrayList<>();
@@ -373,6 +414,17 @@ public class DbConnection {
 	public void searchEszett() throws SQLException, ClassNotFoundException, UnsupportedEncodingException {
 
 		connect();
+		validateRefsetIds();
+
+		Set<String> languages = conf.getLocalLanguages();
+		List<String> refSetIds = new ArrayList<>();
+		for (String lang : languages) {
+			String id = conf.getLanguageRefSetId(lang);
+			if (id != null)
+				refSetIds.add("'" + id + "'");
+		}
+		String refSetPlaceholder = String.join(",", refSetIds);
+
 		String query = """
 				    SELECT
 				        fd.id,
@@ -398,6 +450,8 @@ public class DbConnection {
 				     AND CAST(fd.effectiveTime AS UNSIGNED) = latest.max_effectiveTime
 				    INNER JOIN full_refset_Language fr
 				      ON fd.id = fr.referencedComponentId
+				     AND fr.refsetId IN (""" + refSetPlaceholder + """
+				        )
 				    WHERE fd.languageCode = 'de'
 				      AND fd.term REGEXP 'ß'
 				      AND fd.active = 1

@@ -100,13 +100,11 @@ public class JobService {
                 
                 try {
                     CompareManager manager = new CompareManager(conf);
-                    updateMessage(I18nUtil.get("job.progress.reading"));
-                    
+                    manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
+
                     manager.runDeltaDescInactivations(conf.getFilePathCurrent(), conf.getDestination());
                     
                     result.setInactivationsCount(manager.getLastInactivationsCount());
-
-                    updateMessage(I18nUtil.get("job.progress.generating_inactivations"));
                     
                     result.setManager(manager);
                     result.setSuccessful(true);

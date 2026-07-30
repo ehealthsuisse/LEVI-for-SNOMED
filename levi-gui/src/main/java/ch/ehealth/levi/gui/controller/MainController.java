@@ -8,9 +8,11 @@ import ch.ehealth.levi.gui.service.GitHubUploadService;
 import ch.ehealth.levi.gui.service.JobService;
 import ch.ehealth.levi.gui.util.GuiLogAppender;
 import ch.ehealth.levi.gui.util.I18nUtil;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.util.Duration;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -27,8 +29,6 @@ import ch.ehealth.levi.core.DbConnection;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.Connection;
-import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -120,6 +120,9 @@ public class MainController {
     private Task<JobResult> currentTask;
     private final List<String> selectedJobTypes = new ArrayList<>();
     private long jobStartTime;
+    private boolean preflightOk = false;
+    private final PauseTransition dbNameDebounce = new PauseTransition(Duration.millis(800));
+    private Task<Boolean> preflightTask;
     
     public MainController() {
         this.configService = new ConfigService();
@@ -139,6 +142,7 @@ public class MainController {
                     if (val != null) {
                         updateLanguageFilterItems(val);
                     }
+                    runPreflightCheck();
                 });
 
         languageFilterComboBox.getItems().setAll(I18nUtil.get("language.filter.all"), "de", "fr", "it");
@@ -149,7 +153,7 @@ public class MainController {
         setupEventHandlers();
 
         updateJobButtonsState();
-        updateStatusBar();
+        runPreflightCheck();
 
         GuiLogAppender.setLogArea(logArea);
 
@@ -243,6 +247,10 @@ public class MainController {
         currentFileField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.current")));
         previousFileField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.previous")));
         outputDirField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.output")));
+        githubRepoField.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.repo")));
+        githubBranchField.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.branch")));
+        githubTokenField.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.token")));
+        githubAutoUploadCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.auto")));
     }
     
     private void setupEventHandlers() {
@@ -268,7 +276,17 @@ public class MainController {
         
         uploadGitHubButton.setOnAction(e -> uploadToGitHub());
 
-        dbNameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        dbNameField.textProperty().addListener((obs, old, val) -> {
+            updateConfigFromUI();
+            dbNameDebounce.setOnFinished(e -> runPreflightCheck());
+            dbNameDebounce.playFromStart();
+        });
+        dbNameField.focusedProperty().addListener((obs, old, focused) -> {
+            if (!focused) {
+                dbNameDebounce.stop();
+                runPreflightCheck();
+            }
+        });
         dbPortField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbUsernameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         dbPasswordField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
@@ -326,6 +344,7 @@ public class MainController {
         }
         
         validateConfiguration();
+        runPreflightCheck();
     }
     
     private void updateConfigFromUI() {
@@ -384,7 +403,7 @@ public class MainController {
             if (testTask.getValue()) {
                 showInfo(I18nUtil.get("success.title"), 
                         I18nUtil.get("config.database.test.success"));
-                updateStatusBar();
+                runPreflightCheck();
             } else {
                 showError(I18nUtil.get("error.title"), 
                          I18nUtil.get("config.database.test.failure", "Connection is null"));
@@ -398,6 +417,67 @@ public class MainController {
         });
         
         new Thread(testTask).start();
+    }
+
+    private void runPreflightCheck() {
+        if (preflightTask != null && preflightTask.isRunning()) {
+            return;
+        }
+
+        String dbName = configService.getCurrentConfig().getDatabase().getDbName();
+        if (dbName == null || dbName.isEmpty()) {
+            preflightOk = false;
+            Platform.runLater(() -> {
+                dbStatusLabel.setText(I18nUtil.get("status.db.disconnected"));
+                dbStatusLabel.setStyle("-fx-text-fill: red;");
+                updateJobButtonsState();
+            });
+            return;
+        }
+
+        Conf conf = configService.toConf();
+        Platform.runLater(() -> {
+            dbStatusLabel.setText(I18nUtil.get("status.db.checking"));
+            dbStatusLabel.setStyle("-fx-text-fill: gray;");
+        });
+
+        preflightTask = new Task<Boolean>() {
+            @Override
+            protected Boolean call() throws Exception {
+                DbConnection dbConn = new DbConnection(null, conf);
+                try {
+                    dbConn.connect();
+                    dbConn.validateRefsetIds();
+                    return true;
+                } finally {
+                    try { dbConn.disconnect(); } catch (Exception ignored) {}
+                }
+            }
+        };
+
+        preflightTask.setOnSucceeded(e -> {
+            preflightOk = true;
+            dbStatusLabel.setText(I18nUtil.get("status.db.preflight.ok"));
+            dbStatusLabel.setStyle("-fx-text-fill: green;");
+            updateJobButtonsState();
+        });
+
+        preflightTask.setOnFailed(e -> {
+            preflightOk = false;
+            Throwable ex = preflightTask.getException();
+            String msg = (ex != null) ? ex.getMessage() : "Unknown error";
+            logger.warn("Preflight check failed: {}", msg);
+            if (ex instanceof IllegalArgumentException) {
+                dbStatusLabel.setText(I18nUtil.get("status.db.preflight.refset.failed"));
+            } else {
+                dbStatusLabel.setText(I18nUtil.get("status.db.preflight.connection.failed"));
+            }
+            dbStatusLabel.setStyle("-fx-text-fill: red;");
+            dbStatusLabel.setTooltip(new Tooltip(msg));
+            updateJobButtonsState();
+        });
+
+        new Thread(preflightTask).start();
     }
     
     private void browseFile(TextField targetField, String title) {
@@ -686,7 +766,7 @@ public class MainController {
     }
     
     private void updateJobButtonsState() {
-        startButton.setDisable(selectedJobTypes.isEmpty() || currentTask != null);
+        startButton.setDisable(selectedJobTypes.isEmpty() || currentTask != null || !preflightOk);
 
         updateJobButton(overviewButton,       I18nUtil.get("jobs.overview"),       "overview");
         updateJobButton(descAddButton,        I18nUtil.get("jobs.desc_add"),        "desc-add");
@@ -765,42 +845,6 @@ public class MainController {
         
         currentFileField.setStyle(currentFileField.getText().isEmpty() ? "-fx-border-color: red;" : "");
         outputDirField.setStyle(outputDirField.getText().isEmpty() ? "-fx-border-color: red;" : "");
-    }
-    
-    private void updateStatusBar() {
-        statusBarLabel.setText(I18nUtil.get("status.idle"));
-        
-        Task<Boolean> dbTest = new Task<Boolean>() {
-            @Override
-            protected Boolean call() throws Exception {
-                try {
-                    Conf conf = configService.toConf();
-                    DbConnection dbConn = new DbConnection(null, conf);
-                    dbConn.connect();
-                    dbConn.disconnect();
-                    return true;
-                } catch (Exception e) {
-                    return false;
-                }
-            }
-        };
-        
-        dbTest.setOnSucceeded(e -> {
-            if (dbTest.getValue()) {
-                dbStatusLabel.setText(I18nUtil.get("status.db.connected"));
-                dbStatusLabel.setStyle("-fx-text-fill: green;");
-            } else {
-                dbStatusLabel.setText(I18nUtil.get("status.db.disconnected"));
-                dbStatusLabel.setStyle("-fx-text-fill: red;");
-            }
-        });
-        
-        dbTest.setOnFailed(e -> {
-            dbStatusLabel.setText(I18nUtil.get("status.db.disconnected"));
-            dbStatusLabel.setStyle("-fx-text-fill: red;");
-        });
-        
-        new Thread(dbTest).start();
     }
     
     private void updateLastJobStatus(JobResult result) {
