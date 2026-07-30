@@ -313,7 +313,7 @@ public class DbConnection {
 			        INNER JOIN tmp_pairs tp
 			            ON fd.conceptId     = tp.conceptId
 			           AND fd.languageCode  = tp.languageCode
-			           AND fd.term          = tp.term
+			           AND fd.term          = BINARY tp.term
 			    ) ranked
 			    WHERE rn = 1 AND active = 1
 		    """;
