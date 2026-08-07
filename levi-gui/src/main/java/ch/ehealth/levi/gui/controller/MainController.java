@@ -52,10 +52,11 @@ public class MainController {
     private Stage stage;
     
     // Configuration Section
-    @FXML private TextField dbNameField;
+    @FXML private ComboBox<String> dbListComboBox;
     @FXML private TextField dbPortField;
     @FXML private TextField dbUsernameField;
     @FXML private PasswordField dbPasswordField;
+    @FXML private Button dbListButton;
     @FXML private Button dbTestButton;
     
     @FXML private ComboBox<String> countryCodeComboBox;
@@ -149,6 +150,7 @@ public class MainController {
 
         configService.loadLastConfig();
         updateUIFromConfig();
+        loadAvailableDatabases();
         
         setupEventHandlers();
 
@@ -235,7 +237,8 @@ public class MainController {
     }
 
     private void setupTooltips() {
-        dbNameField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.name")));
+        dbListComboBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.name")));
+        dbListButton.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.list")));
         dbPortField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.port")));
         dbUsernameField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.username")));
         dbPasswordField.setTooltip(new Tooltip(I18nUtil.get("tooltip.database.password")));
@@ -276,12 +279,13 @@ public class MainController {
         
         uploadGitHubButton.setOnAction(e -> uploadToGitHub());
 
-        dbNameField.textProperty().addListener((obs, old, val) -> {
+        dbListButton.setOnAction(e -> loadAvailableDatabases(false));
+        dbListComboBox.getEditor().textProperty().addListener((obs, old, val) -> {
             updateConfigFromUI();
             dbNameDebounce.setOnFinished(e -> runPreflightCheck());
             dbNameDebounce.playFromStart();
         });
-        dbNameField.focusedProperty().addListener((obs, old, focused) -> {
+        dbListComboBox.getEditor().focusedProperty().addListener((obs, old, focused) -> {
             if (!focused) {
                 dbNameDebounce.stop();
                 runPreflightCheck();
@@ -317,7 +321,7 @@ public class MainController {
         try {
             AppConfig config = configService.getCurrentConfig();
 
-            dbNameField.setText(config.getDatabase().getDbName());
+            dbListComboBox.setValue(config.getDatabase().getDbName());
             dbPortField.setText(String.valueOf(config.getDatabase().getDbPort()));
             dbUsernameField.setText(config.getDatabase().getUsername());
             dbPasswordField.setText(config.getDatabase().getPassword());
@@ -354,7 +358,7 @@ public class MainController {
     	
     	AppConfig config = configService.getCurrentConfig();
         
-        config.getDatabase().setDbName(dbNameField.getText());
+        config.getDatabase().setDbName(dbListComboBox.getEditor().getText());
         try {
             config.getDatabase().setDbPort(Integer.parseInt(dbPortField.getText().trim()));
         } catch (NumberFormatException ignored) {
@@ -417,6 +421,44 @@ public class MainController {
         });
         
         new Thread(testTask).start();
+    }
+
+    private void loadAvailableDatabases() {
+        loadAvailableDatabases(true);
+    }
+
+    private void loadAvailableDatabases(boolean silentOnFailure) {
+        updateConfigFromUI();
+        Conf conf = configService.toConf();
+
+        Task<List<String>> listTask = new Task<List<String>>() {
+            @Override
+            protected List<String> call() throws Exception {
+                return DbConnection.listDatabases(conf);
+            }
+        };
+
+        listTask.setOnSucceeded(e -> {
+            List<String> databases = listTask.getValue();
+            dbListComboBox.getItems().setAll(databases);
+            String currentDb = configService.getCurrentConfig().getDatabase().getDbName();
+            if (currentDb != null && databases.contains(currentDb)) {
+                dbListComboBox.setValue(currentDb);
+            } else if (!databases.isEmpty()) {
+                dbListComboBox.setValue(databases.get(0));
+            }
+        });
+
+        listTask.setOnFailed(e -> {
+            if (!silentOnFailure) {
+                Throwable ex = listTask.getException();
+                logger.error("Failed to list databases", ex);
+                showError(I18nUtil.get("error.title"),
+                        I18nUtil.get("config.database.list.failure", ex.getMessage()));
+            }
+        });
+
+        new Thread(listTask).start();
     }
 
     private void runPreflightCheck() {

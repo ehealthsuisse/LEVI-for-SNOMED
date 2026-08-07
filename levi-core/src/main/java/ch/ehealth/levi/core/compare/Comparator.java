@@ -534,19 +534,19 @@ public class Comparator {
 
 		
 		
-		    Function<List<String>, String> comboKeyCurr = row -> {
-		        String c = row.get(CURR_CONCEPT_ID);
-		        String t = row.get(CURR_TERM);
-		        String l = row.get(CURR_LANGUAGECODE);
-		        return c + "||" + t + "||" + l;
-		    };
-		    
-		    Function<List<String>, String> comboKeyIna = row -> {
-		        String c = row.get(INA_CONCEPT_ID).trim();
-		        String t = row.get(INA_TERM).trim();
-		        String l = row.get(INA_LANGUAGECODE).trim().toLowerCase();
-		        return c + "||" + t + "||" + l;
-		    };
+Function<List<String>, String> comboKeyCurr = row -> {
+	        String c = row.get(CURR_CONCEPT_ID);
+	        String t = row.get(CURR_TERM);
+	        String l = row.get(CURR_LANGUAGECODE);
+	        return key(c, t, l);
+	    };
+	    
+	    Function<List<String>, String> comboKeyIna = row -> {
+	        String c = row.get(INA_CONCEPT_ID);
+	        String t = row.get(INA_TERM);
+	        String l = row.get(INA_LANGUAGECODE);
+	        return key(c, t, l);
+	    };
 		    
 		    // ---------- Prepare sets ----------
 		    Set<String> currentKeys = new HashSet<>(Math.max(16, currentEntries.size() * 2));
@@ -562,10 +562,10 @@ public class Comparator {
         // Process each entry in NEW_TRANSLATION_PREVIOUS
         for (List<String> previousEntry : previousEntries) {
         	String conceptId = previousEntry.get(PREV_CONCEPT_ID).trim();
-        	String languageCode = previousEntry.get(PREV_LANGUAGECODE).trim().toLowerCase();
+        	String languageCode = previousEntry.get(PREV_LANGUAGECODE).trim();
         	String term = previousEntry.get(PREV_TERM).trim();
         	
-        	String combo = conceptId + "||" + term + "||" + languageCode;
+        	String combo = key(conceptId, term, languageCode);
         	
         	boolean missingInCurrent = !currentKeys.contains(combo);
             boolean notInactivated   = !inactivationKeys.contains(combo);
@@ -590,6 +590,15 @@ public class Comparator {
         
         return deltaNotFoundTranslations;
 		}
+		
+	/**
+	 * Builds a normalized identity key for a translation entry. The term is kept
+	 * exact and case-sensitive, whitespace is trimmed, and the language code is
+	 * normalized to lower case so de/DE/fr/FR match as expected.
+	 */
+	private String key(String concept, String term, String language) {
+	    return concept.trim() + "||" + term.trim() + "||" + language.trim().toLowerCase();
+	}
 		
 	public List<List<String>> checkDuplicateTerms() throws SQLException, ClassNotFoundException {
 	    logger.info("Checking for duplicate terms...");

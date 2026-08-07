@@ -478,6 +478,71 @@ public class ComparatorTest {
         assertEquals("C1", result.get(1).get(2), "Only the entry not in current should appear");
     }
 
+    @Test
+    public void testDeltaOfNotPublished_TermCaseSensitive() throws IOException, SQLException, ClassNotFoundException {
+        // Previous entry is all lowercase; current has the corrected casing.
+        // The terms differ (case-sensitive matching) so the previous entry must be reported.
+        resultCollector.setFullNewTranslationPrevious(
+            "C1", "FSN", "PT", "myterm", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note"
+        );
+        resultCollector.setFullNewTranslationCurrent(
+            "C1", "FSN", "PT", "MyTerm", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note"
+        );
+
+        List<List<String>> result = comparator.generateDeltaOfNotPublishedTranslations();
+        assertEquals(2, result.size(), "Lowercase term must be reported when current has corrected casing");
+        assertEquals("myterm", result.get(1).get(4), "Previous (lowercase) term should appear in delta");
+    }
+
+    @Test
+    public void testDeltaOfNotPublished_LanguageCodeCaseInsensitive() throws IOException, SQLException, ClassNotFoundException {
+        resultCollector.setFullNewTranslationPrevious(
+            "C1", "FSN", "PT", "My term", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note"
+        );
+        resultCollector.setFullNewTranslationCurrent(
+            "C1", "FSN", "PT", "My term", "DE", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note"
+        );
+
+        List<List<String>> result = comparator.generateDeltaOfNotPublishedTranslations();
+        assertEquals(1, result.size(), "DE should match de when comparing language codes");
+    }
+
+    @Test
+    public void testDeltaOfNotPublished_WhitespaceTrimmedOnMatch() throws IOException, SQLException, ClassNotFoundException {
+        resultCollector.setFullNewTranslationPrevious(
+            "C1", "FSN", "PT", "  My term  ", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note"
+        );
+        resultCollector.setFullNewTranslationCurrent(
+            "C1", "FSN", "PT", "My term", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note"
+        );
+
+        List<List<String>> result = comparator.generateDeltaOfNotPublishedTranslations();
+        assertEquals(1, result.size(), "Entries differing only by whitespace should be treated as equal");
+    }
+
+    @Test
+    public void testDeltaOfNotPublished_OnlyGenuinelyMissingTermsReported() throws IOException, SQLException, ClassNotFoundException {
+        // Current is a superset of previous (all previous terms plus new ones) except one missing term.
+        resultCollector.setFullNewTranslationPrevious("C1", "FSN", "PT", "term one", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note");
+        resultCollector.setFullNewTranslationPrevious("C2", "FSN", "PT", "missing term", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note");
+        resultCollector.setFullNewTranslationCurrent("C1", "FSN", "PT", "term one", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note");
+        resultCollector.setFullNewTranslationCurrent("C3", "FSN", "PT", "brand new term", "de", "CS", "Type",
+            "Ref", "Acc", "", "", "", "", "", "", "", "", "Note");
+
+        List<List<String>> result = comparator.generateDeltaOfNotPublishedTranslations();
+        assertEquals(2, result.size(), "Only the truly missing previous term should be reported");
+        assertEquals("missing term", result.get(1).get(4), "Missing term should appear in delta");
+    }
+
     // =========================================================
     // Tests for Comparator.generateDescriptionInactivationDelta()
     // =========================================================

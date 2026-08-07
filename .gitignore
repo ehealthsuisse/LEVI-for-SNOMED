@@ -2,6 +2,7 @@
 SNOMED_Database
 data
 .DS_Store
+levi-gui/test-clone/
 
 levi-core/src/main/java/ch/ehealth/levi/core/Conf.java
 

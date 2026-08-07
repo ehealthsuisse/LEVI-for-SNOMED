@@ -84,32 +84,6 @@ public class FileReaderUtilTest {
         assertEquals('\t', result[1], "Should default to tab delimiter for unknown type");
     }
 
-    // Test release type detection
-
-    @Test
-    public void testReleaseTypeDetectionForPrevious() {
-        Object[] result = FileReaderUtil.checkFilePathExtension("/path/to/previous_file.propcsv.csv");
-        assertEquals("previous", result[2], "Should detect 'previous' in file path");
-    }
-
-    @Test
-    public void testReleaseTypeDetectionForCurrent() {
-        Object[] result = FileReaderUtil.checkFilePathExtension("/path/to/current_file.propcsv.csv");
-        assertEquals("current", result[2], "Should detect 'current' as default");
-    }
-
-    @Test
-    public void testReleaseTypeDetectionCaseInsensitive() {
-        Object[] result = FileReaderUtil.checkFilePathExtension("/path/to/PREVIOUS_file.propcsv.csv");
-        assertEquals("previous", result[2], "Should detect 'previous' case-insensitively");
-    }
-
-    @Test
-    public void testReleaseTypeDetectionNoPreviousKeyword() {
-        Object[] result = FileReaderUtil.checkFilePathExtension("/path/to/normalfile.propcsv.csv");
-        assertEquals("current", result[2], "Should default to 'current' when 'previous' not found");
-    }
-
     // Test various file path formats
 
     @Test
@@ -146,19 +120,17 @@ public class FileReaderUtilTest {
     @Test
     public void testResultArrayStructure() {
         Object[] result = FileReaderUtil.checkFilePathExtension("/path/to/file.propcsv.csv");
-        assertEquals(3, result.length, "Result array should have 3 elements");
+        assertEquals(2, result.length, "Result array should have 2 elements");
         assertTrue(result[0] instanceof String, "First element should be file type (String)");
         assertTrue(result[1] == null || result[1] instanceof Character, "Second element should be delimiter (Character or null)");
-        assertTrue(result[2] instanceof String, "Third element should be release type (String)");
     }
 
     @Test
     public void testResultArrayForExcel() {
         Object[] result = FileReaderUtil.checkFilePathExtension("/path/to/file.xlsx");
-        assertEquals(3, result.length, "Result array should have 3 elements");
+        assertEquals(2, result.length, "Result array should have 2 elements");
         assertEquals("Excel", result[0], "File type should be 'Excel'");
         assertNull(result[1], "Delimiter should be null for Excel");
-        assertNotNull(result[2], "Release type should not be null");
     }
 
     @Test

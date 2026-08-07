@@ -56,8 +56,11 @@
                             </columnConstraints>
                             
                             <Label text="%config.database.name" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                            <TextField fx:id="dbNameField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-                            <Button fx:id="dbTestButton" text="%config.database.test" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                            <ComboBox fx:id="dbListComboBox" editable="true" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <HBox spacing="5" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                                <Button fx:id="dbListButton" text="%config.database.list"/>
+                                <Button fx:id="dbTestButton" text="%config.database.test"/>
+                            </HBox>
                             
                             <Label text="%config.database.port" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
                             <TextField fx:id="dbPortField" prefWidth="80" GridPane.columnIndex="1" GridPane.rowIndex="1"/>

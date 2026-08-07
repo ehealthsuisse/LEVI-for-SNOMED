@@ -51,6 +51,19 @@ public class FileReaderUtil {
 	 * @throws IOException If an error occurs during file reading.
 	 */
 	public void readFile(String filePath) throws IOException {
+		readFile(filePath, "current");
+	}
+
+	/**
+	 * Reads a file and populates the result collector, classifying the entries as
+	 * belonging to the given release type. The release type is passed explicitly
+	 * (typically "current" or "previous") and is not derived from the file name.
+	 *
+	 * @param filePath    The file path to the file.
+	 * @param releaseType The release type for the entries ("current" or "previous").
+	 * @throws IOException If an error occurs during file reading.
+	 */
+	public void readFile(String filePath, String releaseType) throws IOException {
 
 		// Determine file type and delimiter
 		Object[] fileInfo = checkFilePathExtension(filePath);
@@ -59,7 +72,6 @@ public class FileReaderUtil {
 		if(fileInfo[1] != null) {
 			fileseparator = (char) fileInfo[1];
 		}
-		String releaseType = (String) fileInfo[2];
 
 		if ("Excel".equals(fileType)) {
 			// Read Excel file using Apache POI
@@ -153,36 +165,25 @@ public class FileReaderUtil {
 		fileExtensions.put(".txt", '\t');
 		fileExtensions.put(".simpleOverview.tsv", '\t');
 
-
-		String lowerCasePath = filePath.toLowerCase();
-
-		// Determine release type
-		String releaseType = null;
-		if (lowerCasePath.contains("previous")) {
-			releaseType = "previous";
-		} else {
-			releaseType = "current";
-		}
-
 		// Check if the file path ends with a known extension
 		for (Map.Entry<String, Character> entry : fileExtensions.entrySet()) {
 			if (filePath.endsWith(entry.getKey())) {
-				return new Object[] { entry.getKey(), entry.getValue(), releaseType };
+				return new Object[] { entry.getKey(), entry.getValue() };
 			}
 		}
 
 		// Check for Excel files (no delimiter needed)
 		if (filePath.endsWith(".xlsx") || filePath.endsWith(".xls")) {
-			return new Object[] { "Excel", null, releaseType };
+			return new Object[] { "Excel", null };
 		}
 		
 		// Check for JSON files
         if (filePath.endsWith(".json")) {
-            return new Object[]{"JSON", null, releaseType};
+            return new Object[]{"JSON", null};
         }
 
 		// Return default for unknown file types
-		return new Object[] { "Unknown file type", '\t', releaseType };
+		return new Object[] { "Unknown file type", '\t' };
 	}
 
 	private void processExcel(Workbook workbook, String releaseType) throws IOException {

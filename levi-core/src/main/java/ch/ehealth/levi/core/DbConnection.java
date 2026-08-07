@@ -57,6 +57,28 @@ public class DbConnection {
 	}
 
 	/**
+	 * Lists all databases available on the configured MySQL server by running
+	 * <code>SHOW DATABASES</code> against the given configuration.
+	 *
+	 * @param conf the database configuration to connect with
+	 * @return a list of database names the configured user may access
+	 * @throws SQLException           If a database access error occurs.
+	 * @throws ClassNotFoundException If the JDBC driver class is not found.
+	 */
+	public static List<String> listDatabases(Conf conf) throws SQLException, ClassNotFoundException {
+		List<String> databases = new ArrayList<>();
+		try (Connection connection = DriverManager
+				.getConnection(conf.getSERVER_URL(), conf.getUSERNAME(), conf.getPASSWORD());
+				Statement stmt = connection.createStatement();
+				ResultSet rs = stmt.executeQuery("SHOW DATABASES")) {
+			while (rs.next()) {
+				databases.add(rs.getString(1));
+			}
+		}
+		return databases;
+	}
+
+	/**
 	 * Closes the active database connection.
 	 */
 	public void disconnect() {

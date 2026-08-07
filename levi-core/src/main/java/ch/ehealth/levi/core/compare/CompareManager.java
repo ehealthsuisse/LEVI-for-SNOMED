@@ -158,10 +158,10 @@ public class CompareManager {
 
 	public void runDeltaNotPublishedTranslations (String pathCurrent, String pathPrevious, String destination) throws IOException, ClassNotFoundException, SQLException {
 		reportProgress("job.progress.reading_current");
-		reader.readFile(pathCurrent);
+		reader.readFile(pathCurrent, "current");
 		
 		reportProgress("job.progress.reading_previous");
-		reader.readFile(pathPrevious);
+		reader.readFile(pathPrevious, "previous");
 
 		reportProgress("job.progress.finding_unpublished");
 		reportProgress("job.progress.writing");
@@ -178,7 +178,7 @@ public class CompareManager {
 	public void runDeltaNotPublishedTranslationsReusingCurrent(String pathPrevious, String destination)
 			throws IOException, ClassNotFoundException, SQLException {
         reportProgress("job.progress.reusing_data");
-		reader.readFile(pathPrevious);
+		reader.readFile(pathPrevious, "previous");
 		
 		reportProgress("job.progress.finding_unpublished");
 		reportProgress("job.progress.writing");
