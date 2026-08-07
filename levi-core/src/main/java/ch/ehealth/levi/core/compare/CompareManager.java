@@ -27,6 +27,7 @@ public class CompareManager {
 	private int lastChangesCount;
 	private int lastReactivationsCount;
 	private int lastInactivationsCount;
+	private int lastNotPublishedCount;
 
     public CompareManager(Conf conf) {
         this.resultCollector   = new ResultCollector();
@@ -52,6 +53,7 @@ public class CompareManager {
 	public int getLastChangesCount()       { return lastChangesCount; }
 	public int getLastReactivationsCount() { return lastReactivationsCount; }
 	public int getLastInactivationsCount() { return lastInactivationsCount; }
+	public int getLastNotPublishedCount()  { return lastNotPublishedCount; }
     
 
 	public void runTranslationOverview(String path, String destination)
@@ -60,7 +62,7 @@ public class CompareManager {
 		reader.readFile(path);
 		
 		reportProgress("job.progress.creating_overview");
-		writer.writeToFile(destination + "\\TranslationOverview.tsv", comparator.createTranslationsOverview());
+		writer.writeToFile(destination + "TranslationOverview.tsv", comparator.createTranslationsOverview());
 	}
 
 	public void runDeltaDescAdditions(String path, String destination)
@@ -71,11 +73,11 @@ public class CompareManager {
 		reportProgress("job.progress.generating_additions");
 		List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
 		lastAdditionsCount = Math.max(0, additions.size() - 1);
-		writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", additions);
+		writer.writeToFile(destination + "DeltaDescAdditions.tsv", additions);
 		if(resultCollector.containsType("TRANSLATION_CHANGES")) {
 			List<List<String>> changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
 			lastChangesCount = Math.max(0, changes.size() - 1);
-			writer.writeToFile(destination + "\\DeltaDescChanges.tsv", changes);
+			writer.writeToFile(destination + "DeltaDescChanges.tsv", changes);
 		}
 	}
 	
@@ -86,7 +88,7 @@ public class CompareManager {
 		reportProgress("job.progress.generating_inactivations");
 		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
 		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
-		writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", inactivations);
+		writer.writeToFile(destination + "DeltaDescInactivations.tsv", inactivations);
 	}
 	
 	/**
@@ -103,7 +105,22 @@ public class CompareManager {
 	public void runGenerateDelta(String path, String destination) throws ClassNotFoundException, IOException, SQLException {
 		reportProgress("job.progress.reading");
 		reader.readFile(path);
-		
+
+		generateDeltaAndWrite(destination);
+	}
+
+	/**
+	 * Like {@link #runGenerateDelta} but reuses the current file data already
+	 * loaded into the result collector by a preceding job (e.g. not-published),
+	 * skipping a second read of the large XLS.
+	 */
+	public void runGenerateDeltaReusingCurrent(String destination)
+			throws ClassNotFoundException, IOException, SQLException {
+		reportProgress("job.progress.reusing_data");
+		generateDeltaAndWrite(destination);
+	}
+
+	private void generateDeltaAndWrite(String destination) throws ClassNotFoundException, IOException, SQLException {
 		reportProgress("job.progress.generating_inactivations");
 		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
 		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
@@ -131,25 +148,25 @@ public class CompareManager {
 				batchExportService.export(additions, changes, inactivations, reactivations,
 						resultCollector, destination);
 			} else {
-				writer.writeToFile(destination + "\\DeltaDescAdditions.tsv", additions);
+				writer.writeToFile(destination + "DeltaDescAdditions.tsv", additions);
 				if (changes != null) {
-					writer.writeToFile(destination + "\\DeltaDescChanges.tsv", changes);
+					writer.writeToFile(destination + "DeltaDescChanges.tsv", changes);
 				}
 				if (reactivations != null) {
-					writer.writeToFile(destination + "\\DeltaDescReactivation.tsv", reactivations);
+					writer.writeToFile(destination + "DeltaDescReactivation.tsv", reactivations);
 				}
-				writer.writeToFile(destination + "\\DeltaDescInactivations.tsv", inactivations);
+				writer.writeToFile(destination + "DeltaDescInactivations.tsv", inactivations);
 			}
 	}
 	
 	public void runCheckEszettInExtension(String destination) throws ClassNotFoundException, IOException, SQLException {
 		reportProgress("job.progress.checking_eszett");
-		String fileName = "\\EszettInactivations.tsv";
+		String fileName = "EszettInactivations.tsv";
 		int i = 0;
 		
 		for (List<List<String>> entry : comparator.checkEszettInExtension()) {
 			if (i > 0) {
-				fileName = "\\EszettAdditions.tsv";
+				fileName = "EszettAdditions.tsv";
 			}
 			writer.writeToFile(destination + fileName, entry);
 			i++;
@@ -165,7 +182,9 @@ public class CompareManager {
 
 		reportProgress("job.progress.finding_unpublished");
 		reportProgress("job.progress.writing");
-		writer.writeToFile(destination + "\\DeltaNotPublishedTranslations.tsv", comparator.generateDeltaOfNotPublishedTranslations());
+		List<List<String>> delta = comparator.generateDeltaOfNotPublishedTranslations();
+		lastNotPublishedCount = Math.max(0, delta.size() - 1);
+		writer.writeToFile(destination + "DeltaNotPublishedTranslations.tsv", delta);
 		
 	}
 
@@ -182,13 +201,14 @@ public class CompareManager {
 		
 		reportProgress("job.progress.finding_unpublished");
 		reportProgress("job.progress.writing");
-		writer.writeToFile(destination + "\\DeltaNotPublishedTranslations.tsv",
-				comparator.generateDeltaOfNotPublishedTranslations());
+		List<List<String>> delta = comparator.generateDeltaOfNotPublishedTranslations();
+		lastNotPublishedCount = Math.max(0, delta.size() - 1);
+		writer.writeToFile(destination + "DeltaNotPublishedTranslations.tsv", delta);
 	}
 	
 	public void runCheckDuplicateTerms(String destination) 
 	        throws IOException, ClassNotFoundException, SQLException {
-	    writer.writeToFile(destination + "\\DuplicateTerms.tsv", 
+	    writer.writeToFile(destination + "DuplicateTerms.tsv", 
 	        comparator.checkDuplicateTerms());
 	}
 

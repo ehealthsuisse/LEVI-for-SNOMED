@@ -663,6 +663,13 @@ public class MainController {
         }
         
         List<String> queue = new ArrayList<>(selectedJobTypes);
+        // Not-published must run first: it compares the current file against the
+        // previous file, so it needs a pristine collector before any other job
+        // (e.g. translate-delta) processes the current data.
+        queue.remove("not-published");
+        queue.add(0, "not-published");
+
+        statisticsArea.clear();
         updateJobRunningState(true);
         startRuntimeUpdater();
         runNextJob(queue, 0, null);
@@ -677,7 +684,12 @@ public class MainController {
             case "overview":        task = jobService.createOverviewTask(conf);          break;
             case "desc-add":        task = jobService.createDescAdditionsTask(conf);     break;
             case "desc-inact":      task = jobService.createDescInactivationsTask(conf); break;
-            case "translate-delta": task = jobService.createTranslateDeltaTask(conf);   break;
+            case "translate-delta": {
+                ch.ehealth.levi.core.compare.CompareManager preloaded =
+                        (prevResult != null) ? prevResult.getManager() : null;
+                task = jobService.createTranslateDeltaTask(conf, preloaded);
+                break;
+            }
             case "eszett-check":    task = jobService.createEszettCheckTask(conf);       break;
             case "not-published": {
             	ch.ehealth.levi.core.compare.CompareManager preloaded =
@@ -695,7 +707,6 @@ public class MainController {
 
         currentTask = task;
 
-        statisticsArea.clear();
         String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
         if (queue.size() > 1) {
             appendProgress("[" + ts + "] " + 

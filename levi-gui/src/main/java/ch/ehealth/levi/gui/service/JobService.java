@@ -126,6 +126,16 @@ public class JobService {
      * Creates a task for running full delta generation
      */
     public Task<JobResult> createTranslateDeltaTask(Conf conf) {
+        return createTranslateDeltaTask(conf, null);
+    }
+
+    /**
+     * Creates a task for running full delta generation, optionally reusing a
+     * CompareManager that already has the current file's data loaded (e.g. from a
+     * preceding not-published job). When a preloaded manager is provided the current
+     * file is not read again, mirroring the not-published reuse behaviour.
+     */
+    public Task<JobResult> createTranslateDeltaTask(Conf conf, CompareManager preloadedManager) {
         return new Task<JobResult>() {
             @Override
             protected JobResult call() throws Exception {
@@ -135,10 +145,15 @@ public class JobService {
                 JobResult result = new JobResult("translate-delta");
                 
                 try {
-                    CompareManager manager = new CompareManager(conf);
-                    manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
-                    
-                    manager.runGenerateDelta(conf.getFilePathCurrent(), conf.getDestination());
+                    CompareManager manager = preloadedManager;
+                    if (manager != null) {
+                        manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
+                        manager.runGenerateDeltaReusingCurrent(conf.getDestination());
+                    } else {
+                        manager = new CompareManager(conf);
+                        manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
+                        manager.runGenerateDelta(conf.getFilePathCurrent(), conf.getDestination());
+                    }
                     
                     result.setAdditionsCount(manager.getLastAdditionsCount());
                     result.setChangesCount(manager.getLastChangesCount());
@@ -224,6 +239,8 @@ public class JobService {
                             conf.getFilePathPrevious(),
                             conf.getDestination()
                         );
+                        result.setInactivationsCount(preloadedManager.getLastNotPublishedCount());
+                        result.setManager(preloadedManager);
                     } else {
                         CompareManager manager = new CompareManager(conf);
                         manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
@@ -232,6 +249,8 @@ public class JobService {
                             conf.getFilePathPrevious(),
                             conf.getDestination()
                         );
+                        result.setInactivationsCount(manager.getLastNotPublishedCount());
+                        result.setManager(manager);
                     }
                                         
                     result.setSuccessful(true);
