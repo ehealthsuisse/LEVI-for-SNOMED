@@ -133,7 +133,7 @@ When you first launch LEVI GUI, configure your database:
    - `DE` – Germany (German)
    - `AT` – Austria (German)
    - `FR` – France (French)
-   - `IT` – Italy (Italian)
+   - ...
 
 2. **Language Filter**: Select the language to process (`de`, `fr`, `it`, or `all`)
 3. **Eszett Transform**: Check for CH/AT (converts ß → ss)
@@ -151,7 +151,7 @@ LEVI runs a **preflight check** against the database whenever the country code o
 
 If you want generated delta files to be pushed to a GitHub repository automatically:
 
-1. Enter the **Repository URL** and **GitHub Token** (stored AES-256 encrypted)
+1. Enter the **Repository URL** and **GitHub Token** (Personal Acess Token - PAT) (stored AES-256 encrypted)
 2. Enable **Auto-upload after successful jobs**
 3. Generated files are cloned, committed, and pushed after each successful job
 
