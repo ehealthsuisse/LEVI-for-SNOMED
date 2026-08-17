@@ -7,7 +7,7 @@
     <parent>
         <groupId>ch.ehealth.levi</groupId>
         <artifactId>levi-parent</artifactId>
-        <version>2.0.0</version>
+        <version>2.1.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -22,7 +22,7 @@
         <dependency>
             <groupId>ch.ehealth.levi</groupId>
             <artifactId>levi-core</artifactId>
-            <version>2.0.0</version>
+            <version>2.1.0</version>
         </dependency>
 
         <!-- JavaFX -->
@@ -126,10 +126,10 @@
                 <version>1.6.0</version>
                 <configuration>
                     <name>LEVI-GUI</name>
-                    <appVersion>2.0.0</appVersion>
+                    <appVersion>2.1.0</appVersion>
                     <vendor>eHealth Suisse</vendor>
                     <destination>target/installer</destination>
-                    <mainJar>levi-gui-2.0.0.jar</mainJar>
+                    <mainJar>levi-gui-2.1.0.jar</mainJar>
                     <mainClass>ch.ehealth.levi.gui.LeviGuiApplication</mainClass>
                     <javaOptions>
                         <option>-Xmx2g</option>

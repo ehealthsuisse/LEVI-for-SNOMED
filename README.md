@@ -46,6 +46,8 @@ LEVI is designed for **national SNOMED CT release centers** and **translation te
 - Detection and preparation of inactivation entries
 - Regex-based language checks (quotes, soft hyphens, spaces, capitalization)
 - Support for CSV, TSV, Excel, and FHIR JSON files
+- FHIR ValueSet expansion (extracts designations per language)
+- Configurable language filter (de/fr/it/all)
 - Handling of both "current" and "previous" releases
 - Multi-language support (German, French, Italian, English)
 
@@ -55,6 +57,10 @@ LEVI is designed for **national SNOMED CT release centers** and **translation te
 - Configuration management and persistence
 - Secure password storage (AES-256 encryption)
 - Database connection testing
+- Database dropdown (auto-lists available databases)
+- Preflight validation of country code / DB refset configuration
+- GitHub upload of generated delta files (JGit)
+- Full internationalization with runtime language switching (EN/DE/FR/IT)
 - Detailed statistics and result viewing
 
 ## Getting Started
@@ -91,7 +97,7 @@ The easiest way to get started:
 
 Or run directly:
 ```bash
-java -jar levi-gui-1.0.0.jar
+java -jar levi-gui-2.1.0.jar
 ```
 
 ### Building the GUI from Source
@@ -103,7 +109,7 @@ mvn clean package
 
 Then run:
 ```bash
-java -jar target/levi-gui-1.0.0.jar
+java -jar target/levi-gui-2.1.0.jar
 ```
 
 ### GUI First-Time Setup
@@ -115,9 +121,10 @@ When you first launch LEVI GUI, configure your database:
    ```
    jdbc:mysql://localhost:3306/snomed
    ```
-2. **Username**: Your database username (e.g., `root`)
-3. **Password**: Your database password
-4. Click **Test** to verify the connection
+2. **Database**: Select a database from the dropdown (lists all databases on the server) or type one manually. Use the reload button to refresh the list.
+3. **Username**: Your database username (e.g., `root`)
+4. **Password**: Your database password
+5. Click **Test** to verify the connection
 
 #### Step 2: Configure Settings
 
@@ -128,8 +135,11 @@ When you first launch LEVI GUI, configure your database:
    - `FR` – France (French)
    - `IT` – Italy (Italian)
 
-2. **Eszett Transform**: Check for CH/AT (converts ß → ss)
-3. **Regex Validation**: Check to enable term validation
+2. **Language Filter**: Select the language to process (`de`, `fr`, `it`, or `all`)
+3. **Eszett Transform**: Check for CH/AT (converts ß → ss)
+4. **Regex Validation**: Check to enable term validation
+
+LEVI runs a **preflight check** against the database whenever the country code or database changes. If the configured language refsets don't match the selected SNOMED extension, the Start button stays disabled and the status bar shows a descriptive error.
 
 #### Step 3: Set File Paths
 
@@ -137,9 +147,17 @@ When you first launch LEVI GUI, configure your database:
 2. **Previous File** (optional): For comparison-based operations
 3. **Output Directory**: Where generated files will be saved
 
-#### Step 4: Save Configuration
+#### Step 4: GitHub Upload (optional)
 
-Click **Save Config** to save settings for next time. Your configuration is also auto-saved after each job runs.
+If you want generated delta files to be pushed to a GitHub repository automatically:
+
+1. Enter the **Repository URL** and **GitHub Token** (stored AES-256 encrypted)
+2. Enable **Auto-upload after successful jobs**
+3. Generated files are cloned, committed, and pushed after each successful job
+
+#### Step 5: Save Configuration
+
+Click **Save Config** to save settings for next time. Your configuration is also auto-saved after each job runs. Use the **Language** menu to switch the GUI language (EN/DE/FR/IT) at any time – your preference is remembered between sessions.
 
 ### Using the GUI
 
@@ -184,6 +202,7 @@ Configurations are saved as JSON files for easy reuse:
   },
   "settings": {
     "countryCode": "CH",
+    "languageCodeFilter": "all",
     "transformEszett": true,
     "regexCheck": true
   },
@@ -191,6 +210,12 @@ Configurations are saved as JSON files for easy reuse:
     "currentFile": "/path/to/current.csv",
     "previousFile": "/path/to/previous.csv",
     "outputDirectory": "/path/to/output"
+  },
+  "github": {
+    "repoUrl": "https://github.com/user/levi-delta.git",
+    "branch": "results",
+    "token": "LEVI:encrypted_base64_string",
+    "autoUpload": true
   }
 }
 ```
@@ -208,7 +233,7 @@ mvn clean package
 
 This creates a JAR in `target/`:
 ```
-target/SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar
+target/levi-core-2.1.0-jar-with-dependencies.jar
 ```
 
 ### Running CLI Tasks
@@ -216,7 +241,7 @@ target/SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar
 Navigate to the `target/` directory and run:
 
 ```bash
-java -jar SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar ^
+java -jar levi-core-2.1.0-jar-with-dependencies.jar ^
   --task=overview ^
   --country=DE ^
   --current="C:\path\to\current.xlsx" ^
@@ -253,7 +278,7 @@ java -jar SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar ^
 
 **Translation Overview:**
 ```bash
-java -jar SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar ^
+java -jar levi-core-2.1.0-jar-with-dependencies.jar ^
   --task=overview ^
   --country=DE ^
   --current="C:\translations\current.xlsx" ^
@@ -265,7 +290,7 @@ java -jar SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar ^
 
 **Generate Complete Delta with Eszett Transformation:**
 ```bash
-java -jar SNOMEDTranslationCheck-0.0.1-SNAPSHOT-jar-with-dependencies.jar ^
+java -jar levi-core-2.1.0-jar-with-dependencies.jar ^
   --task=translate-delta ^
   --country=CH ^
   --current="C:\translations\current.xlsx" ^
@@ -413,8 +438,14 @@ Large groups are automatically split into batches (default: 1,000 concepts per b
 
 ### Application Settings
 - Country code (determines language rules)
+- Language filter (de/fr/it/all)
 - Eszett transformation toggle (ß → ss for German)
 - Regex validation toggle (validates term format)
+- GUI language (EN/DE/FR/IT, switched at runtime)
+
+### GitHub Upload
+- Repository URL and GitHub token (AES-256 encrypted)
+- Optional auto-upload of generated delta files after successful jobs
 
 ### File Paths
 - Input file (current translations)
@@ -471,5 +502,5 @@ This project is licensed under the MIT License. See LICENSE file for details.
 
 ---
 
-**Last Updated**: 2026-06-03  
-**Version**: 2.0.0 (with GUI)
+**Last Updated**: 2026-08-17  
+**Version**: 2.1.0 (with GUI)

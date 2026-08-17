@@ -10,7 +10,7 @@ if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
     source "$HOME/.sdkman/bin/sdkman-init.sh"
 fi
 
-JAR_FILE="$SCRIPT_DIR/target/levi-gui-2.0.0.jar"
+JAR_FILE="$SCRIPT_DIR/target/levi-gui-2.1.0.jar"
 
 # Check if Java is installed
 if ! command -v java &> /dev/null; then

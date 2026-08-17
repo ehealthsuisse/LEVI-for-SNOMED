@@ -10,15 +10,15 @@ Before you begin, ensure you have:
 ## Installation
 
 ### Option 1: Download Executable JAR (Recommended)
-1. Download `levi-gui-1.0.0.jar` from the releases page
-2. Double-click the JAR file or run: `java -jar levi-gui-1.0.0.jar`
+1. Download `levi-gui-2.1.0.jar` from the releases page
+2. Double-click the JAR file or run: `java -jar levi-gui-2.1.0.jar`
 
 ### Option 2: Build from Source
 ```bash
-git clone https://github.com/gurtner-it/LEVI-for-SNOMED.git
-cd LEVI-for-SNOMED/LEVI-GUI
+git clone https://github.com/eHealth-Suisse/LEVI-for-SNOMED.git
+cd levi-gui
 mvn clean package
-java -jar target/levi-gui-1.0.0.jar
+java -jar target/levi-gui-2.1.0.jar
 ```
 
 ## First Run
@@ -168,7 +168,7 @@ Click **Save Log** to export for troubleshooting.
 
 ### "Job failed: OutOfMemoryError"
 **Solution**:
-- Increase Java heap: `java -Xmx4g -jar levi-gui-1.0.0.jar`
+- Increase Java heap: `java -Xmx4g -jar levi-gui-2.1.0.jar`
 - Split large files into smaller chunks
 - Close other applications
 

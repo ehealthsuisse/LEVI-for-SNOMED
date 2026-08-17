@@ -3,7 +3,7 @@
 # This script launches the LEVI GUI application
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-JAR_FILE="$SCRIPT_DIR/target/levi-gui-2.0.0.jar"
+JAR_FILE="$SCRIPT_DIR/target/levi-gui-2.1.0.jar"
 
 # Initialize SDKMAN if available
 if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
