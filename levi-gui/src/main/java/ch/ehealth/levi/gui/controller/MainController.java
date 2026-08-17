@@ -666,8 +666,10 @@ public class MainController {
         // Not-published must run first: it compares the current file against the
         // previous file, so it needs a pristine collector before any other job
         // (e.g. translate-delta) processes the current data.
-        queue.remove("not-published");
-        queue.add(0, "not-published");
+        if (queue.contains("not-published")) {
+            queue.remove("not-published");
+            queue.add(0, "not-published");
+        }
 
         statisticsArea.clear();
         updateJobRunningState(true);
