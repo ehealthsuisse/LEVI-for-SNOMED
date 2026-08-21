@@ -22,11 +22,19 @@ public class AppConfig {
     @JsonProperty("github")
     private GitHubConfig github;
 
+    @JsonProperty("dbSetup")
+    private DbSetupConfig dbSetup;
+
+    @JsonProperty("xampp")
+    private XamppConfig xampp;
+
     public AppConfig() {
         this.database = new DatabaseConfig();
         this.settings = new Settings();
         this.paths = new Paths();
         this.github = new GitHubConfig();
+        this.dbSetup = new DbSetupConfig();
+        this.xampp = new XamppConfig();
     }
     
     // Getters and setters
@@ -68,6 +76,22 @@ public class AppConfig {
 
     public void setGithub(GitHubConfig github) {
         this.github = github;
+    }
+
+    public DbSetupConfig getDbSetup() {
+        return dbSetup;
+    }
+
+    public void setDbSetup(DbSetupConfig dbSetup) {
+        this.dbSetup = dbSetup;
+    }
+
+    public XamppConfig getXampp() {
+        return xampp;
+    }
+
+    public void setXampp(XamppConfig xampp) {
+        this.xampp = xampp;
     }
 
     public static class DatabaseConfig {
@@ -258,6 +282,89 @@ public class AppConfig {
 
         public void setAutoUpload(boolean autoUpload) {
             this.autoUpload = autoUpload;
+        }
+    }
+
+    /** Settings for the SNOMED DB creation feature (Database Setup tab). */
+    public static class DbSetupConfig {
+        @JsonProperty("intlReleasePath")
+        private String intlReleasePath = "";
+
+        @JsonProperty("extensionReleasePath")
+        private String extensionReleasePath = "";
+
+        @JsonProperty("dbNameToCreate")
+        private String dbNameToCreate = "SCT:CH_Jun26";
+
+        @JsonProperty("releaseType")
+        private String releaseType = "FULL";
+
+        @JsonProperty("countryCode")
+        private String countryCode = "CH";
+
+        @JsonProperty("dbVariant")
+        private String dbVariant = "PRODUCTION";
+
+        public String getIntlReleasePath() {
+            return intlReleasePath;
+        }
+
+        public void setIntlReleasePath(String intlReleasePath) {
+            this.intlReleasePath = intlReleasePath;
+        }
+
+        public String getExtensionReleasePath() {
+            return extensionReleasePath;
+        }
+
+        public void setExtensionReleasePath(String extensionReleasePath) {
+            this.extensionReleasePath = extensionReleasePath;
+        }
+
+        public String getDbNameToCreate() {
+            return dbNameToCreate;
+        }
+
+        public void setDbNameToCreate(String dbNameToCreate) {
+            this.dbNameToCreate = dbNameToCreate;
+        }
+
+        public String getReleaseType() {
+            return releaseType;
+        }
+
+        public void setReleaseType(String releaseType) {
+            this.releaseType = releaseType;
+        }
+
+        public String getCountryCode() {
+            return countryCode;
+        }
+
+        public void setCountryCode(String countryCode) {
+            this.countryCode = countryCode;
+        }
+
+        public String getDbVariant() {
+            return dbVariant;
+        }
+
+        public void setDbVariant(String dbVariant) {
+            this.dbVariant = dbVariant;
+        }
+    }
+
+    /** Settings for the XAMPP server control (Database Setup tab). */
+    public static class XamppConfig {
+        @JsonProperty("lamppPath")
+        private String lamppPath = ch.ehealth.levi.gui.service.XamppService.DEFAULT_LAMPP_PATH;
+
+        public String getLamppPath() {
+            return lamppPath;
+        }
+
+        public void setLamppPath(String lamppPath) {
+            this.lamppPath = lamppPath;
         }
     }
 }

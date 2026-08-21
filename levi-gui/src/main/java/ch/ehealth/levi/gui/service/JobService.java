@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ch.ehealth.levi.core.compare.CompareManager;
 import ch.ehealth.levi.core.Conf;
+import ch.ehealth.levi.core.db.DbCreateConfig;
+import ch.ehealth.levi.core.db.SctDatabaseCreator;
 
 /**
  * Service for executing LEVI jobs asynchronously
@@ -15,6 +17,40 @@ public class JobService {
     
     private static final Logger logger = LoggerFactory.getLogger(JobService.class);
     
+    /**
+     * Creates a task for creating a SNOMED CT database from RF2 release files.
+     *
+     * @param dbCreateConfig configuration for the database creation
+     */
+    public Task<JobResult> createDatabaseTask(DbCreateConfig dbCreateConfig) {
+        return new Task<JobResult>() {
+            @Override
+            protected JobResult call() throws Exception {
+                long startTime = System.currentTimeMillis();
+                updateMessage(I18nUtil.get("job.progress.dbcreate"));
+
+                JobResult result = new JobResult("db-create");
+
+                try {
+                    SctDatabaseCreator.create(dbCreateConfig,
+                            (key, args) -> updateMessage(I18nUtil.get(key, args)));
+
+                    result.setSuccessful(true);
+                    result.setDatabaseCreated(dbCreateConfig.getDbName());
+                } catch (Exception e) {
+                    logger.error("Error creating SNOMED database", e);
+                    result.setSuccessful(false);
+                    result.setErrorMessage(e.getMessage());
+                    throw e;
+                } finally {
+                    result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
+                }
+
+                return result;
+            }
+        };
+    }
+
     /**
      * Creates a task for running translation overview
      */
@@ -209,6 +245,45 @@ public class JobService {
         };
     }
     
+    /**
+     * Creates a task for the translation rule check (e.g. French)
+     */
+    public Task<JobResult> createTranslationCheckTask(Conf conf, String languageCode) {
+        return new Task<JobResult>() {
+            @Override
+            protected JobResult call() throws Exception {
+                long startTime = System.currentTimeMillis();
+                updateMessage(I18nUtil.get("job.progress.translation_check"));
+
+                JobResult result = new JobResult("translation-check");
+
+                try {
+                    CompareManager manager = new CompareManager(conf);
+                    manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
+
+                    manager.runTranslationCheck(conf.getFilePathCurrent(), conf.getDestination(), languageCode);
+
+                    result.setCheckPassCount(manager.getLastCheckPassCount());
+                    result.setCheckUncertainCount(manager.getLastCheckUncertainCount());
+                    result.setCheckFailCount(manager.getLastCheckFailCount());
+                    result.setCheckRuleCount(manager.getLastCheckRuleCount());
+
+                    result.setManager(manager);
+                    result.setSuccessful(true);
+                } catch (Exception e) {
+                    logger.error("Error in translation check", e);
+                    result.setSuccessful(false);
+                    result.setErrorMessage(e.getMessage());
+                    throw e;
+                } finally {
+                    result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
+                }
+
+                return result;
+            }
+        };
+    }
+
     /**
      * Creates a task for finding not published translations
      */

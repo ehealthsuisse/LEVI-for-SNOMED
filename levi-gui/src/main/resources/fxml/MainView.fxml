@@ -43,7 +43,7 @@
     <center>
         <ScrollPane fx:id="mainScrollPane" fitToWidth="true">
             <VBox spacing="15" style="-fx-padding: 20;">
-                <!-- Configuration Section -->
+                <!-- Configuration Section (shared across all tabs) -->
                 <TitledPane text="%config.title" expanded="true" collapsible="false">
                     <VBox spacing="10" style="-fx-padding: 10;">
                         <!-- Database Configuration -->
@@ -148,35 +148,128 @@
                         </HBox>
                     </VBox>
                 </TitledPane>
-                
-                <!-- Jobs Section -->
+
+                <!-- Main method tabs -->
+                <TabPane fx:id="mainTabs" tabClosingPolicy="UNAVAILABLE">
+                    <!-- Delta generation tab -->
+                    <Tab text="%main.tabs.delta">
+                        <VBox spacing="10" style="-fx-padding: 10;">
+                            <!-- Job Selection Buttons -->
+                            <GridPane hgap="10" vgap="10">
+                                <columnConstraints>
+                                    <ColumnConstraints percentWidth="33.3"/>
+                                    <ColumnConstraints percentWidth="33.3"/>
+                                    <ColumnConstraints percentWidth="33.3"/>
+                                </columnConstraints>
+                                
+                                <Button fx:id="overviewButton" text="%jobs.overview" 
+                                        maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                                <Button fx:id="descAddButton" text="%jobs.desc_add" 
+                                        maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                                <Button fx:id="descInactButton" text="%jobs.desc_inact" 
+                                        maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                                <Button fx:id="translateDeltaButton" text="%jobs.translate_delta" 
+                                        maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                                <Button fx:id="eszettCheckButton" text="%jobs.eszett_check" 
+                                        maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                                <Button fx:id="notPublishedButton" text="%jobs.not_published" 
+                                        maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                            </GridPane>
+                            <Label text="%main.tabs.delta.hint" wrapText="true" style="-fx-text-fill: #666666;"/>
+                        </VBox>
+                    </Tab>
+                    
+                    <!-- Translation Check tab -->
+                    <Tab text="%main.tabs.translationcheck">
+                        <VBox spacing="10" style="-fx-padding: 10;">
+                            <HBox spacing="15" alignment="CENTER_LEFT">
+                                <Label text="%jobs.translation_check.language"/>
+                                <ComboBox fx:id="translationCheckLanguageComboBox" prefWidth="220"/>
+                                <Button fx:id="translationCheckButton" text="%jobs.translation_check" 
+                                        maxWidth="Infinity"/>
+                            </HBox>
+                            <Label text="%main.tabs.translation.hint" wrapText="true" style="-fx-text-fill: #666666;"/>
+                        </VBox>
+                    </Tab>
+                    
+                    <!-- Future statistics / plotting tab -->
+                    <Tab text="%main.tabs.statistics" disable="true">
+                        <VBox spacing="10" style="-fx-padding: 10;">
+                            <Label text="%main.tabs.statistics.hint" wrapText="true" style="-fx-text-fill: #666666;"/>
+                        </VBox>
+                    </Tab>
+
+                    <!-- Database Setup tab -->
+                    <Tab text="%main.tabs.dbsetup">
+                        <VBox spacing="10" style="-fx-padding: 10;">
+                            <!-- XAMPP Server -->
+                            <Label text="%dbsetup.xampp.title" style="-fx-font-weight: bold;"/>
+                            <GridPane hgap="10" vgap="10">
+                                <columnConstraints>
+                                    <ColumnConstraints minWidth="180" prefWidth="180"/>
+                                    <ColumnConstraints hgrow="ALWAYS"/>
+                                </columnConstraints>
+                                <Label text="%dbsetup.xampp.path.label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                                <TextField fx:id="xamppPathField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                                <Label text="%dbsetup.sudo.password.label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                                <PasswordField fx:id="xamppSudoPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            </GridPane>
+                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                <Button fx:id="xamppStartButton" text="%dbsetup.xampp.start"/>
+                                <Button fx:id="xamppStopButton" text="%dbsetup.xampp.stop"/>
+                                <Button fx:id="xamppStatusButton" text="%dbsetup.xampp.status"/>
+                                <Label fx:id="xamppStatusLabel" text="%status.db.disconnected"/>
+                            </HBox>
+                            <Label text="%dbsetup.xampp.note" wrapText="true" style="-fx-text-fill: #666666;"/>
+
+                            <Separator/>
+
+                            <!-- SNOMED DB creation -->
+                            <Label text="%dbsetup.database.title" style="-fx-font-weight: bold;"/>
+                            <Label text="%dbsetup.database.files" style="-fx-font-weight: bold; -fx-text-fill: #555555;"/>
+                            <GridPane hgap="10" vgap="10">
+                                <columnConstraints>
+                                    <ColumnConstraints minWidth="180" prefWidth="180"/>
+                                    <ColumnConstraints hgrow="ALWAYS"/>
+                                    <ColumnConstraints minWidth="100"/>
+                                </columnConstraints>
+                                <Label text="%dbsetup.database.intlpath.label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                                <TextField fx:id="dbCreateIntlPathField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                                <Button fx:id="dbCreateIntlBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                                <Label text="%dbsetup.database.extpath.label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                                <TextField fx:id="dbCreateExtPathField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                                <Button fx:id="dbCreateExtBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                            </GridPane>
+                            <Label text="%dbsetup.database.target" style="-fx-font-weight: bold; -fx-text-fill: #555555;"/>
+                            <GridPane hgap="10" vgap="10">
+                                <columnConstraints>
+                                    <ColumnConstraints minWidth="180" prefWidth="180"/>
+                                    <ColumnConstraints hgrow="ALWAYS"/>
+                                    <ColumnConstraints minWidth="100"/>
+                                </columnConstraints>
+                                <Label text="%dbsetup.database.variant.label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                                <ComboBox fx:id="dbCreateVariantComboBox" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                                <Label text="%dbsetup.database.name.label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                                <TextField fx:id="dbCreateNameField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                                <Label text="%dbsetup.database.country.label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                                <ComboBox fx:id="dbCreateCountryComboBox" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                                <Label text="%dbsetup.database.releasetype.label" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                                <ComboBox fx:id="dbCreateReleaseTypeComboBox" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+                            </GridPane>
+                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                <Button fx:id="dbScanButton" text="%dbsetup.database.scan"/>
+                                <Button fx:id="dbCreateButton" text="%dbsetup.database.create"/>
+                            </HBox>
+                            <TextArea fx:id="dbScanArea" editable="false" prefHeight="120" wrapText="true" 
+                                     style="-fx-font-family: 'Courier New'; -fx-font-size: 12px;"/>
+                            <Label text="%dbsetup.database.note" wrapText="true" style="-fx-text-fill: #666666;"/>
+                        </VBox>
+                    </Tab>
+                </TabPane>
+
+                <!-- Job Control (shared across tabs) -->
                 <TitledPane text="%jobs.title" expanded="true" collapsible="false">
                     <VBox spacing="10" style="-fx-padding: 10;">
-                        <!-- Job Selection Buttons -->
-                        <GridPane hgap="10" vgap="10">
-                            <columnConstraints>
-                                <ColumnConstraints percentWidth="33.3"/>
-                                <ColumnConstraints percentWidth="33.3"/>
-                                <ColumnConstraints percentWidth="33.3"/>
-                            </columnConstraints>
-                            
-                            <Button fx:id="overviewButton" text="%jobs.overview" 
-                                    maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                            <Button fx:id="descAddButton" text="%jobs.desc_add" 
-                                    maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-                            <Button fx:id="descInactButton" text="%jobs.desc_inact" 
-                                    maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
-                            <Button fx:id="translateDeltaButton" text="%jobs.translate_delta" 
-                                    maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                            <Button fx:id="eszettCheckButton" text="%jobs.eszett_check" 
-                                    maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-                            <Button fx:id="notPublishedButton" text="%jobs.not_published" 
-                                    maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
-                        </GridPane>
-                        
-                        <Separator/>
-                        
-                        <!-- Job Control -->
                         <HBox spacing="10" alignment="CENTER">
                             <Button fx:id="startButton" text="%jobs.button.start" style="-fx-font-weight: bold;"/>
                             <Button fx:id="cancelButton" text="%jobs.button.cancel" disable="true"/>

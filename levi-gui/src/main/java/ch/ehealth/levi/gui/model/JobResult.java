@@ -19,6 +19,23 @@ public class JobResult {
     private long executionTimeMs;
     private boolean successful;
     private String errorMessage;
+
+    /** Name of the database created by a db-create job, or null. */
+    private String databaseCreated;
+    
+    public String getDatabaseCreated() {
+        return databaseCreated;
+    }
+
+    public void setDatabaseCreated(String databaseCreated) {
+        this.databaseCreated = databaseCreated;
+    }
+    
+    // Translation check statistics
+    private int checkPassCount;
+    private int checkUncertainCount;
+    private int checkFailCount;
+    private int checkRuleCount;
     
     private List<ResultEntry> additions = new ArrayList<>();
     private List<ResultEntry> changes = new ArrayList<>();
@@ -88,6 +105,18 @@ public class JobResult {
     public void setWarningsCount(int warningsCount) {
         this.warningsCount = warningsCount;
     }
+
+    public int getCheckPassCount() { return checkPassCount; }
+    public void setCheckPassCount(int checkPassCount) { this.checkPassCount = checkPassCount; }
+
+    public int getCheckUncertainCount() { return checkUncertainCount; }
+    public void setCheckUncertainCount(int checkUncertainCount) { this.checkUncertainCount = checkUncertainCount; }
+
+    public int getCheckFailCount() { return checkFailCount; }
+    public void setCheckFailCount(int checkFailCount) { this.checkFailCount = checkFailCount; }
+
+    public int getCheckRuleCount() { return checkRuleCount; }
+    public void setCheckRuleCount(int checkRuleCount) { this.checkRuleCount = checkRuleCount; }
     
     public long getExecutionTimeMs() {
         return executionTimeMs;

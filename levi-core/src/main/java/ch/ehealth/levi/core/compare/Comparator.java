@@ -34,6 +34,15 @@ public class Comparator {
 	    this.conf = configuration;
 	    this.dbConnection = new DbConnection(this.resultCollector, this.conf);
 	}
+
+	/**
+	 * Fetches the latest active English FSN and preferred term for the given
+	 * concept IDs. Used by the translation-rule check to enrich the additions
+	 * rows with English context (columns 2/3 of the input TSV are placeholders).
+	 */
+	public Map<String, String[]> fetchEnglishFsnAndPt(Set<String> conceptId) throws SQLException, ClassNotFoundException {
+		return dbConnection.fetchEnglishFsnAndPt(conceptId);
+	}
 	
 
 	public List<List<String>> createTranslationsOverview() throws IOException, ClassNotFoundException, SQLException {

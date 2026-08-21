@@ -564,6 +564,91 @@ public class DbConnection {
 	}
 
 	/**
+	 * Fetch the latest active English FSN (type 900000000000003001) and preferred
+	 * term (type 900000000000013009) for the given concept IDs.
+	 *
+	 * @param conceptIDs the set of concept IDs to look up
+	 * @return a map from concept ID to {@code {fsn, pt}}; entries absent for
+	 *         concepts without an active English description
+	 * @throws SQLException           if a database access error occurs
+	 * @throws ClassNotFoundException if the JDBC driver class is not found
+	 */
+	public Map<String, String[]> fetchEnglishFsnAndPt(Set<String> conceptIDs) throws SQLException, ClassNotFoundException {
+		Map<String, String[]> result = new HashMap<>();
+		if (conceptIDs == null || conceptIDs.isEmpty()) {
+			return result;
+		}
+		connect();
+		try (Statement stmt = connection.createStatement()) {
+			stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_en_concept_ids");
+			stmt.execute("""
+					CREATE TEMPORARY TABLE temp_en_concept_ids (
+					    conceptId VARCHAR(20) PRIMARY KEY
+					)
+				""");
+
+			int batchSize = 5000;
+			List<String> idList = new ArrayList<>(conceptIDs);
+			for (int i = 0; i < idList.size(); i += batchSize) {
+				List<String> batch = idList.subList(i, Math.min(i + batchSize, idList.size()));
+				StringBuilder insertSql = new StringBuilder("INSERT INTO temp_en_concept_ids VALUES ");
+				for (int j = 0; j < batch.size(); j++) {
+					insertSql.append("('").append(batch.get(j)).append("')");
+					if (j < batch.size() - 1)
+						insertSql.append(",");
+				}
+				stmt.execute(insertSql.toString());
+			}
+
+			String query = """
+					SELECT
+					    c.conceptId,
+					    a.term,
+					    a.typeId
+					FROM temp_en_concept_ids c
+					INNER JOIN (
+					    SELECT fd1.id, fd1.conceptId, fd1.term, fd1.typeId
+					    FROM full_description fd1
+					    JOIN (
+					        SELECT conceptId, typeId, MAX(effectiveTime) AS max_time
+					        FROM full_description
+					        WHERE languageCode = 'en'
+					          AND active = 1
+					          AND typeId IN ('900000000000003001', '900000000000013009')
+					        GROUP BY conceptId, typeId
+					    ) latest
+					      ON fd1.conceptId = latest.conceptId
+					     AND fd1.typeId    = latest.typeId
+					     AND fd1.effectiveTime = latest.max_time
+					    WHERE fd1.languageCode = 'en'
+					      AND fd1.active = 1
+					) a ON a.conceptId = c.conceptId
+					""";
+			try (ResultSet rs = stmt.executeQuery(query)) {
+				while (rs.next()) {
+					String conceptId = rs.getString("conceptId");
+					String term = rs.getString("term");
+					String typeId = rs.getString("typeId");
+					if (conceptId == null || term == null) {
+						continue;
+					}
+					String[] pair = result.computeIfAbsent(conceptId, k -> new String[2]);
+					if ("900000000000003001".equals(typeId)) {
+						pair[0] = term; // fsn
+					} else {
+						pair[1] = term; // pt
+					}
+				}
+			}
+
+			stmt.execute("DROP TEMPORARY TABLE IF EXISTS temp_en_concept_ids");
+		}
+		disconnect();
+		logger.info("Fetched English FSN/PT for {} concepts.", result.size());
+		return result;
+	}
+
+	/**
 	 * Searches for duplicate terms across active descriptions in the extension,
 	 * processes the results and populates the resultCollector with type
 	 * "DUPLICATE_TERM".

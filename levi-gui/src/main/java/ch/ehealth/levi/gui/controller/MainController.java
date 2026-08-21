@@ -6,6 +6,8 @@ import ch.ehealth.levi.gui.model.JobResult;
 import ch.ehealth.levi.gui.service.ConfigService;
 import ch.ehealth.levi.gui.service.GitHubUploadService;
 import ch.ehealth.levi.gui.service.JobService;
+import ch.ehealth.levi.gui.service.XamppService;
+import ch.ehealth.levi.gui.service.XamppService.XamppCommandResult;
 import ch.ehealth.levi.gui.util.GuiLogAppender;
 import ch.ehealth.levi.gui.util.I18nUtil;
 import javafx.animation.PauseTransition;
@@ -14,6 +16,7 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.util.Duration;
 import javafx.fxml.FXMLLoader;
+import javafx.util.StringConverter;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -26,6 +29,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ch.ehealth.levi.core.Conf;
 import ch.ehealth.levi.core.DbConnection;
+import ch.ehealth.levi.core.db.DbCreateConfig;
+import ch.ehealth.levi.core.db.DbCreateConfig.ReleaseType;
+import ch.ehealth.levi.core.db.DbVariant;
+import ch.ehealth.levi.core.db.SctReleaseFileScanner;
+import ch.ehealth.levi.core.db.SctReleaseFileScanner.SctRelease;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,6 +55,7 @@ public class MainController {
     private final ConfigService configService;
     private final JobService jobService;
     private final GitHubUploadService gitHubUploadService;
+    private XamppService xamppService = new XamppService();
     
     // Stage
     private Stage stage;
@@ -99,8 +108,31 @@ public class MainController {
     
     // Results Section
     @FXML private TabPane resultsTabPane;
+    @FXML private TabPane mainTabs;
+    @FXML private ComboBox<String> translationCheckLanguageComboBox;
+    @FXML private Button translationCheckButton;
     @FXML private TextArea statisticsArea;
     @FXML private TextArea logArea;
+
+    // Database Setup tab
+    @FXML private TextField xamppPathField;
+    @FXML private PasswordField xamppSudoPasswordField;
+    @FXML private Button xamppStartButton;
+    @FXML private Button xamppStopButton;
+    @FXML private Button xamppStatusButton;
+    @FXML private Label xamppStatusLabel;
+
+    @FXML private TextField dbCreateIntlPathField;
+    @FXML private Button dbCreateIntlBrowseButton;
+    @FXML private TextField dbCreateExtPathField;
+    @FXML private Button dbCreateExtBrowseButton;
+    @FXML private TextField dbCreateNameField;
+    @FXML private ComboBox<String> dbCreateVariantComboBox;
+    @FXML private ComboBox<String> dbCreateReleaseTypeComboBox;
+    @FXML private ComboBox<String> dbCreateCountryComboBox;
+    @FXML private Button dbScanButton;
+    @FXML private Button dbCreateButton;
+    @FXML private TextArea dbScanArea;
 
     // Main scroll pane (center of the BorderPane)
     @FXML private ScrollPane mainScrollPane;
@@ -148,6 +180,35 @@ public class MainController {
 
         languageFilterComboBox.getItems().setAll(I18nUtil.get("language.filter.all"), "de", "fr", "it");
 
+        // Translation Check language selection: French is implemented, German
+        // and Italian checkers will be added later.
+        translationCheckLanguageComboBox.getItems().setAll(
+                I18nUtil.get("main.tabs.translation.language.fr"),
+                I18nUtil.get("main.tabs.translation.language.de"),
+                I18nUtil.get("main.tabs.translation.language.it"));
+        translationCheckLanguageComboBox.getSelectionModel().select(0);
+        translationCheckLanguageComboBox.disableProperty().set(false);
+
+        // Database Setup tab
+        dbCreateReleaseTypeComboBox.getItems().setAll("FULL", "SNAPSHOT");
+        dbCreateCountryComboBox.getItems().setAll(
+                ch.ehealth.levi.core.Conf.getAvailableCountryCodes().stream()
+                        .sorted().toArray(String[]::new));
+        dbCreateVariantComboBox.getItems().setAll(
+                "PRODUCTION", "BETA", "PRE_PRODUCTION", "AT");
+        dbCreateVariantComboBox.setConverter(new StringConverter<String>() {
+            @Override
+            public String toString(String value) {
+                return value == null ? "" : I18nUtil.get("dbvariant." + value.toLowerCase(Locale.ROOT));
+            }
+
+            @Override
+            public String fromString(String string) {
+                return string;
+            }
+        });
+        dbCreateVariantComboBox.setPromptText(I18nUtil.get("dbsetup.database.variant.label"));
+
         configService.loadLastConfig();
         updateUIFromConfig();
         loadAvailableDatabases();
@@ -160,6 +221,8 @@ public class MainController {
         GuiLogAppender.setLogArea(logArea);
 
         selectLanguageMenuItem();
+
+        refreshXamppStatus();
 
         logger.info("MainController initialized");
     }
@@ -254,6 +317,20 @@ public class MainController {
         githubBranchField.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.branch")));
         githubTokenField.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.token")));
         githubAutoUploadCheckBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.auto")));
+
+        xamppPathField.setTooltip(new Tooltip(I18nUtil.get("tooltip.xampp.path")));
+        xamppSudoPasswordField.setTooltip(new Tooltip(I18nUtil.get("tooltip.xampp.sudo")));
+        xamppStartButton.setTooltip(new Tooltip(I18nUtil.get("tooltip.xampp.start")));
+        xamppStopButton.setTooltip(new Tooltip(I18nUtil.get("tooltip.xampp.stop")));
+        xamppStatusButton.setTooltip(new Tooltip(I18nUtil.get("tooltip.xampp.status")));
+        dbCreateIntlPathField.setTooltip(new Tooltip(I18nUtil.get("tooltip.dbsetup.intl")));
+        dbCreateExtPathField.setTooltip(new Tooltip(I18nUtil.get("tooltip.dbsetup.ext")));
+        dbCreateNameField.setTooltip(new Tooltip(I18nUtil.get("tooltip.dbsetup.dbname")));
+        dbCreateVariantComboBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.dbsetup.variant")));
+        dbCreateReleaseTypeComboBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.dbsetup.releasetype")));
+        dbCreateCountryComboBox.setTooltip(new Tooltip(I18nUtil.get("tooltip.dbsetup.country")));
+        dbScanButton.setTooltip(new Tooltip(I18nUtil.get("tooltip.dbsetup.scan")));
+        dbCreateButton.setTooltip(new Tooltip(I18nUtil.get("tooltip.dbsetup.create")));
     }
     
     private void setupEventHandlers() {
@@ -273,6 +350,7 @@ public class MainController {
         translateDeltaButton.setOnAction(e -> selectJob("translate-delta"));
         eszettCheckButton.setOnAction(e -> selectJob("eszett-check"));
         notPublishedButton.setOnAction(e -> selectJob("not-published"));
+        translationCheckButton.setOnAction(e -> selectJob("translation-check"));
         
         startButton.setOnAction(e -> startJob());
         cancelButton.setOnAction(e -> cancelJob());
@@ -312,6 +390,37 @@ public class MainController {
         githubBranchField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         githubTokenField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         githubAutoUploadCheckBox.selectedProperty().addListener((obs, old, val) -> updateConfigFromUI());
+
+        // Database Setup tab
+        xamppStartButton.setOnAction(e -> startXampp());
+        xamppStopButton.setOnAction(e -> stopXampp());
+        xamppStatusButton.setOnAction(e -> refreshXamppStatus());
+        xamppPathField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        dbCreateIntlBrowseButton.setOnAction(
+                e -> browseDirectory(dbCreateIntlPathField, I18nUtil.get("dbsetup.database.choose.release")));
+        dbCreateExtBrowseButton.setOnAction(
+                e -> browseDirectory(dbCreateExtPathField, I18nUtil.get("dbsetup.database.choose.release")));
+        dbCreateIntlPathField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        dbCreateExtPathField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        dbCreateNameField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        dbCreateVariantComboBox.getSelectionModel().selectedItemProperty()
+                .addListener((obs, old, val) -> {
+                    if (val != null && !suppressConfigUpdates) {
+                        String prevDefault = old == null ? "CH" : DbVariant.valueOf(old).getDefaultCountryCode();
+                        String newDefault = DbVariant.valueOf(val).getDefaultCountryCode();
+                        if (!prevDefault.equals(newDefault)
+                                && prevDefault.equals(dbCreateCountryComboBox.getValue())) {
+                            dbCreateCountryComboBox.setValue(newDefault);
+                        }
+                    }
+                    updateConfigFromUI();
+                });
+        dbCreateReleaseTypeComboBox.getSelectionModel().selectedItemProperty()
+                .addListener((obs, old, val) -> updateConfigFromUI());
+        dbCreateCountryComboBox.getSelectionModel().selectedItemProperty()
+                .addListener((obs, old, val) -> updateConfigFromUI());
+        dbScanButton.setOnAction(e -> scanReleaseFiles());
+        dbCreateButton.setOnAction(e -> createDatabase());
     }
     
     private boolean suppressConfigUpdates = false;
@@ -342,6 +451,18 @@ public class MainController {
                 githubBranchField.setText(config.getGithub().getBranch());
                 githubTokenField.setText(config.getGithub().getToken());
                 githubAutoUploadCheckBox.setSelected(config.getGithub().isAutoUpload());
+            }
+
+            if (config.getDbSetup() != null) {
+                dbCreateIntlPathField.setText(config.getDbSetup().getIntlReleasePath());
+                dbCreateExtPathField.setText(config.getDbSetup().getExtensionReleasePath());
+                dbCreateNameField.setText(config.getDbSetup().getDbNameToCreate());
+                dbCreateVariantComboBox.setValue(config.getDbSetup().getDbVariant());
+                dbCreateReleaseTypeComboBox.setValue(config.getDbSetup().getReleaseType());
+                dbCreateCountryComboBox.setValue(config.getDbSetup().getCountryCode());
+            }
+            if (config.getXampp() != null) {
+                xamppPathField.setText(config.getXampp().getLamppPath());
             }
         } finally {
             suppressConfigUpdates = false;
@@ -381,6 +502,18 @@ public class MainController {
             config.getGithub().setBranch(githubBranchField.getText());
             config.getGithub().setToken(githubTokenField.getText());
             config.getGithub().setAutoUpload(githubAutoUploadCheckBox.isSelected());
+        }
+
+        if (config.getDbSetup() != null) {
+            config.getDbSetup().setIntlReleasePath(dbCreateIntlPathField.getText());
+            config.getDbSetup().setExtensionReleasePath(dbCreateExtPathField.getText());
+            config.getDbSetup().setDbNameToCreate(dbCreateNameField.getText());
+            config.getDbSetup().setDbVariant(dbCreateVariantComboBox.getValue());
+            config.getDbSetup().setReleaseType(dbCreateReleaseTypeComboBox.getValue());
+            config.getDbSetup().setCountryCode(dbCreateCountryComboBox.getValue());
+        }
+        if (config.getXampp() != null) {
+            config.getXampp().setLamppPath(xamppPathField.getText());
         }
     }
     
@@ -699,6 +832,12 @@ public class MainController {
                 task = jobService.createNotPublishedTask(conf, preloaded);
                 break;
             }
+            case "translation-check": {
+                int idx = translationCheckLanguageComboBox.getSelectionModel().getSelectedIndex();
+                String lang = idx == 1 ? "de" : (idx == 2 ? "it" : "fr");
+                task = jobService.createTranslationCheckTask(conf, lang);
+                break;
+            }
             default:
                 showError(I18nUtil.get("dialog.job.unknown.title"), 
                          I18nUtil.get("dialog.job.unknown.content", jobType));
@@ -801,10 +940,17 @@ public class MainController {
         if (result.isSuccessful()) {
             stats.append(I18nUtil.get("results.statistics.success")).append("\n\n");
             
-            stats.append(I18nUtil.get("results.statistics.additions")).append("   ").append(result.getAdditionsCount()).append("\n");
-            stats.append(I18nUtil.get("results.statistics.changes")).append("     ").append(result.getChangesCount()).append("\n");
-            stats.append(I18nUtil.get("results.statistics.inactivations")).append(" ").append(result.getInactivationsCount()).append("\n");
-            stats.append(I18nUtil.get("results.statistics.reactivations")).append(" ").append(result.getReactivationsCount()).append("\n\n");
+            if ("translation-check".equals(result.getJobType())) {
+                stats.append(I18nUtil.get("results.statistics.check.pass")).append("       ").append(result.getCheckPassCount()).append("\n");
+                stats.append(I18nUtil.get("results.statistics.check.uncertain")).append("  ").append(result.getCheckUncertainCount()).append("\n");
+                stats.append(I18nUtil.get("results.statistics.check.fail")).append("       ").append(result.getCheckFailCount()).append("\n");
+                stats.append(I18nUtil.get("results.statistics.check.rules")).append("      ").append(result.getCheckRuleCount()).append("\n\n");
+            } else {
+                stats.append(I18nUtil.get("results.statistics.additions")).append("   ").append(result.getAdditionsCount()).append("\n");
+                stats.append(I18nUtil.get("results.statistics.changes")).append("     ").append(result.getChangesCount()).append("\n");
+                stats.append(I18nUtil.get("results.statistics.inactivations")).append(" ").append(result.getInactivationsCount()).append("\n");
+                stats.append(I18nUtil.get("results.statistics.reactivations")).append(" ").append(result.getReactivationsCount()).append("\n\n");
+            }
             
             stats.append(I18nUtil.get("results.statistics.errors")).append("  ").append(result.getErrorsCount()).append("\n");
             stats.append(I18nUtil.get("results.statistics.warnings")).append(" ").append(result.getWarningsCount()).append("\n\n");
@@ -829,6 +975,7 @@ public class MainController {
         updateJobButton(translateDeltaButton, I18nUtil.get("jobs.translate_delta"), "translate-delta");
         updateJobButton(eszettCheckButton,    I18nUtil.get("jobs.eszett_check"),    "eszett-check");
         updateJobButton(notPublishedButton,   I18nUtil.get("jobs.not_published"),   "not-published");
+        updateJobButton(translationCheckButton, I18nUtil.get("jobs.translation_check"), "translation-check");
     }
 
     private void updateJobButton(Button btn, String baseLabel, String jobType) {
@@ -850,6 +997,7 @@ public class MainController {
             case "translate-delta": return I18nUtil.get("jobs.translate_delta");
             case "eszett-check":    return I18nUtil.get("jobs.eszett_check");
             case "not-published":   return I18nUtil.get("jobs.not_published");
+            case "translation-check": return I18nUtil.get("jobs.translation_check");
             default:                return jobType;
         }
     }
@@ -1064,5 +1212,249 @@ public class MainController {
                          I18nUtil.get("log.save.failed", e.getMessage()));
             }
         }
+    }
+
+    // =====================================================================
+    // Database Setup: XAMPP server control
+    // =====================================================================
+
+    private XamppService getXamppService() {
+        String path = configService.getCurrentConfig().getXampp().getLamppPath();
+        if (path == null || path.isEmpty()) {
+            path = XamppService.DEFAULT_LAMPP_PATH;
+        }
+        if (!path.equals(xamppService.getLamppPath())) {
+            xamppService = new XamppService(path);
+        }
+        return xamppService;
+    }
+
+    private void refreshXamppStatus() {
+        XamppService svc = getXamppService();
+        if (!svc.isAvailable()) {
+            xamppStartButton.setDisable(true);
+            xamppStopButton.setDisable(true);
+            xamppStatusLabel.setText(
+                    I18nUtil.get("dbsetup.xampp.notavailable", svc.getLamppPath()));
+            xamppStatusLabel.setStyle("-fx-text-fill: red;");
+            return;
+        }
+        xamppStartButton.setDisable(false);
+        xamppStopButton.setDisable(false);
+        updateConfigFromUI();
+        AppConfig.DatabaseConfig db = configService.getCurrentConfig().getDatabase();
+        boolean reachable = svc.isMysqlReachable(
+                "localhost", db.getDbPort(), db.getUsername(), db.getPassword());
+        xamppStatusLabel.setText(reachable
+                ? I18nUtil.get("dbsetup.xampp.running")
+                : I18nUtil.get("dbsetup.xampp.stopped"));
+        xamppStatusLabel.setStyle(reachable ? "-fx-text-fill: green;" : "-fx-text-fill: red;");
+    }
+
+    private void startXampp() {
+        runXamppCommand("start");
+    }
+
+    private void stopXampp() {
+        runXamppCommand("stop");
+    }
+
+    private void runXamppCommand(String action) {
+        updateConfigFromUI();
+        String sudoPassword = xamppSudoPasswordField.getText();
+
+        Task<XamppCommandResult> task = new Task<XamppCommandResult>() {
+            @Override
+            protected XamppCommandResult call() throws Exception {
+                return getXamppService().runCommand(action, sudoPassword);
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            XamppCommandResult result = task.getValue();
+            if (result.getOutput() != null && !result.getOutput().isEmpty()) {
+                logMessage(result.getOutput());
+            }
+            if (result.isSuccess()) {
+                showInfo(I18nUtil.get("success.title"),
+                        I18nUtil.get("dbsetup.xampp.cmd.success", action));
+            } else {
+                showError(I18nUtil.get("error.title"),
+                        I18nUtil.get("dbsetup.xampp.cmd.failed", action, result.getOutput()));
+            }
+            refreshXamppStatus();
+            runPreflightCheck();
+        });
+
+        task.setOnFailed(e -> {
+            Throwable ex = task.getException();
+            logger.error("XAMPP {} failed", action, ex);
+            showError(I18nUtil.get("error.title"),
+                    ex != null ? ex.getMessage() : "Unknown error");
+        });
+
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    // =====================================================================
+    // Database Setup: SNOMED DB creation
+    // =====================================================================
+
+    private void scanReleaseFiles() {
+        updateConfigFromUI();
+        String intl = dbCreateIntlPathField.getText() == null
+                ? "" : dbCreateIntlPathField.getText().trim();
+        String ext = dbCreateExtPathField.getText() == null
+                ? "" : dbCreateExtPathField.getText().trim();
+        if (intl.isEmpty()) {
+            showWarning(I18nUtil.get("dialog.job.none.title"),
+                    I18nUtil.get("dbsetup.database.scan.nointl"));
+            return;
+        }
+
+        Task<String> task = new Task<String>() {
+            @Override
+            protected String call() throws Exception {
+                StringBuilder sb = new StringBuilder();
+                SctRelease intlRel = SctReleaseFileScanner.scan(intl);
+                sb.append("=== ").append(I18nUtil.get("dbsetup.scan.international")).append(" ===\n");
+                appendReleaseSummary(sb, intlRel);
+
+                SctRelease extRel = null;
+                if (!ext.isEmpty()) {
+                    extRel = SctReleaseFileScanner.scan(ext);
+                    sb.append("\n=== ").append(I18nUtil.get("dbsetup.scan.extension")).append(" ===\n");
+                    appendReleaseSummary(sb, extRel);
+                }
+
+                // Auto-fill fields from the detected release
+                String module = (extRel != null) ? extRel.getModuleId() : intlRel.getModuleId();
+                String country = SctReleaseFileScanner.detectCountry(module);
+                DbVariant variant = SctReleaseFileScanner.detectVariant(ext);
+                if (variant == null) {
+                    variant = SctReleaseFileScanner.detectVariant(module);
+                }
+                String dbName = SctReleaseFileScanner.suggestDbName(
+                        country, intlRel.getReleaseDate(), variant);
+                String type = intlRel.getReleaseType().name();
+
+                String variantName = variant == null ? null : variant.name();
+                Platform.runLater(() -> {
+                    if (variantName != null) {
+                        dbCreateVariantComboBox.setValue(variantName);
+                    }
+                    dbCreateCountryComboBox.setValue(country);
+                    dbCreateReleaseTypeComboBox.setValue(type);
+                    if (dbCreateNameField.getText() == null || dbCreateNameField.getText().trim().isEmpty()) {
+                        dbCreateNameField.setText(dbName);
+                    }
+                    updateConfigFromUI();
+                });
+                return sb.toString();
+            }
+        };
+
+        task.setOnSucceeded(e -> dbScanArea.setText(task.getValue()));
+        task.setOnFailed(e -> {
+            Throwable ex = task.getException();
+            logger.error("Scan release files failed", ex);
+            showError(I18nUtil.get("error.title"),
+                    ex != null ? ex.getMessage() : "Unknown error");
+        });
+
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void appendReleaseSummary(StringBuilder sb, SctRelease rel) {
+        sb.append(I18nUtil.get("dbsetup.scan.releasetype")).append(": ")
+                .append(rel.getReleaseType().getFolderName()).append("\n");
+        sb.append(I18nUtil.get("dbsetup.scan.module")).append(": ")
+                .append(rel.getModuleId()).append("\n");
+        sb.append(I18nUtil.get("dbsetup.scan.date")).append(": ")
+                .append(rel.getReleaseDate()).append("\n");
+        sb.append(I18nUtil.get("dbsetup.scan.concept")).append(": ")
+                .append(rel.getConceptFile().getName()).append("\n");
+        sb.append(I18nUtil.get("dbsetup.scan.relationship")).append(": ")
+                .append(rel.getRelationshipFile().getName()).append("\n");
+        sb.append(I18nUtil.get("dbsetup.scan.descriptions")).append(":\n");
+        rel.getDescriptionFiles().forEach((lang, f) ->
+                sb.append("  - ").append(lang).append(": ").append(f.getName()).append("\n"));
+        sb.append(I18nUtil.get("dbsetup.scan.langrefsets")).append(":\n");
+        rel.getLanguageRefsetFiles().forEach((lang, f) ->
+                sb.append("  - ").append(lang).append(": ").append(f.getName()).append("\n"));
+    }
+
+    private void createDatabase() {
+        updateConfigFromUI();
+        String intl = dbCreateIntlPathField.getText() == null
+                ? "" : dbCreateIntlPathField.getText().trim();
+        String dbName = dbCreateNameField.getText() == null
+                ? "" : dbCreateNameField.getText().trim();
+        if (intl.isEmpty() || dbName.isEmpty()) {
+            showWarning(I18nUtil.get("dialog.job.none.title"),
+                    I18nUtil.get("dbsetup.database.create.missing"));
+            return;
+        }
+
+        AppConfig.DatabaseConfig db = configService.getCurrentConfig().getDatabase();
+        DbCreateConfig cfg = new DbCreateConfig();
+        cfg.setDbName(dbName);
+        cfg.setDbPort(db.getDbPort());
+        cfg.setDbUser(db.getUsername());
+        cfg.setDbPassword(db.getPassword());
+        cfg.setIntlReleasePath(intl);
+        cfg.setExtensionReleasePath(dbCreateExtPathField.getText() == null
+                ? "" : dbCreateExtPathField.getText().trim());
+        cfg.setCountryCode(dbCreateCountryComboBox.getValue());
+        cfg.setDbVariant(dbCreateVariantComboBox.getValue());
+        cfg.setReleaseType("SNAPSHOT".equals(dbCreateReleaseTypeComboBox.getValue())
+                ? ReleaseType.SNAPSHOT : ReleaseType.FULL);
+
+        Task<JobResult> task = jobService.createDatabaseTask(cfg);
+
+        statisticsArea.clear();
+        resultsTabPane.getSelectionModel().select(0);
+        progressBar.setProgress(-1);
+        statusLabel.textProperty().bind(task.messageProperty());
+        dbCreateButton.setDisable(true);
+
+        task.setOnSucceeded(e -> {
+            JobResult result = task.getValue();
+            statusLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            statusLabel.setText(I18nUtil.get("jobs.status.idle"));
+            dbCreateButton.setDisable(false);
+            if (result.isSuccessful()) {
+                String created = result.getDatabaseCreated();
+                logMessage("\u2705 " + I18nUtil.get("dbsetup.database.create.success", created));
+                showInfo(I18nUtil.get("success.title"),
+                        I18nUtil.get("dbsetup.database.create.success", created));
+                configService.getCurrentConfig().getDatabase().setDbName(created);
+                loadAvailableDatabases(true);
+                runPreflightCheck();
+            } else {
+                showError(I18nUtil.get("dialog.config.error.title"),
+                        result.getErrorMessage() != null ? result.getErrorMessage() : "Unknown error");
+            }
+        });
+
+        task.setOnFailed(e -> {
+            Throwable ex = task.getException();
+            logger.error("Database creation failed", ex);
+            statusLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            statusLabel.setText(I18nUtil.get("jobs.status.idle"));
+            dbCreateButton.setDisable(false);
+            showError(I18nUtil.get("dialog.job.failed.title"),
+                    ex != null ? ex.getMessage() : "Unknown error");
+        });
+
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
     }
 }

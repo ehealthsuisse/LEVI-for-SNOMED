@@ -62,6 +62,8 @@ LEVI is designed for **national SNOMED CT release centers** and **translation te
 - GitHub upload of generated delta files (JGit)
 - Full internationalization with runtime language switching (EN/DE/FR/IT)
 - Detailed statistics and result viewing
+- **SNOMED database creation** (Database Setup tab) – build a query-ready SNOMED CT database from RF2 release files (International Edition + extension), with automatic file detection, Full/Snapshot support and a Production / Beta / Pre-Production / AT variant selector
+- **XAMPP server control** (Database Setup tab) – start/stop XAMPP from inside LEVI and monitor MySQL reachability
 
 ## Getting Started
 
@@ -188,6 +190,45 @@ The Statistics tab shows:
 - ⏱️ Total runtime
 - 📊 Detailed result summary
 
+#### Database Setup & XAMPP
+
+The **Database Setup** tab bundles two maintenance features:
+
+**1. XAMPP Server control**
+
+Instead of running `sudo /opt/lampp/lampp start` in a terminal before launching LEVI, you can control XAMPP from the GUI:
+
+1. **XAMPP script**: Path to the control script (`/opt/lampp/lampp` on Linux, default detected)
+2. **Sudo password**: Entered in the GUI and piped to `sudo -S` for the single executed command. It is **never stored** in the config file and **never logged**.
+3. Press **Start XAMPP** (or **Stop XAMPP**) and check the status label.
+
+The status label auto-detects whether MySQL/MariaDB is reachable via a JDBC ping (no root privileges required) and shows **MySQL running** or **MySQL not running**.
+
+**2. SNOMED CT Database Creation**
+
+Creates a complete SNOMED CT database from the RF2 Full/Snapshot release files, exactly like the standalone [SNOMED_Database](https://github.com/eHealth-Suisse/SNOMED_Database) tool:
+
+1. Set the **International release** folder (the root of `SnomedCT_InternationalRF2_...`, containing `Full/` or `Snapshot/`)
+2. Set the **Extension release** folder (root of `SnomedCT_ManagedServiceCH_...` for CH, or the AT extension) – optional but recommended
+3. Select the **Database variant**: Production (full), Beta (daily build), Pre-Production or AT – determines how the suggested DB name is built and which country defaults are used
+4. Click **Scan Release Files** – LEVI detects the release files, the release date, the module ID, the variant and the languages, and auto-fills the **DB name**, **country**, **variant** and **release type**
+5. Optionally adjust the **New DB name**, **Material release** (Full/Snapshot) and **Country**
+6. Click **Create Database**
+
+Suggested DB names follow the SNOMED_Database convention (3-letter months):
+`SCT:CH_Jun26` (Production), `SCT:CH_Beta_Aug26` (Beta), `SCT:CH_PreProdJun26` (Pre-Production), `SCT:AT_Mar25` (AT).
+
+The tool:
+- Drops and recreates the database (same behaviour as SNOMED_Database)
+- Creates the 7 full-release tables (`full_concept`, `full_description`, `full_relationship`, `full_refset_Simple`, `full_refset_ExtendedMap`, `full_refset_Language`, `full_refset_ModuleDependency`)
+- Imports the International Edition (concepts, English descriptions, relationships, English language refset)
+- Imports all extension language files found (e.g. `de-ch`, `fr-ch`, `it-ch`, `en` for CH)
+- Adds the 10 query-performance indexes
+
+All variants of SNOMED_Database (CH production, AT, CH beta/daily build, CH pre-production) are supported through a **Database variant** selector – they differ only in the extension folder and module ID, which the scan detects automatically.
+
+> **Note:** Generating the database can take a long time (the International Edition download is several GB). The selected database and its data will be completely dropped and recreated.
+
 #### Configuration File Format
 
 Configurations are saved as JSON files for easy reuse:
@@ -216,6 +257,17 @@ Configurations are saved as JSON files for easy reuse:
     "branch": "results",
     "token": "LEVI:encrypted_base64_string",
     "autoUpload": true
+  },
+  "dbSetup": {
+    "intlReleasePath": "/home/user/Downloads/SnomedCT_InternationalRF2_PRODUCTION_20260601T120000Z",
+    "extensionReleasePath": "/home/user/Downloads/SnomedCT_ManagedServiceCH_PRODUCTION_CH1000195_20260607T120000Z",
+    "dbNameToCreate": "SCT:CH_Jun26",
+    "dbVariant": "PRODUCTION",
+    "releaseType": "FULL",
+    "countryCode": "CH"
+  },
+  "xampp": {
+    "lamppPath": "/opt/lampp/lampp"
   }
 }
 ```
