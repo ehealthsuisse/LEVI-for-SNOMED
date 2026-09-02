@@ -25,6 +25,10 @@ import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ch.ehealth.levi.core.Conf;
@@ -113,6 +117,19 @@ public class MainController {
     @FXML private Button translationCheckButton;
     @FXML private TextArea statisticsArea;
     @FXML private TextArea logArea;
+    
+    // Statistics Section
+    @FXML private Button createStatisticsButton;
+    @FXML private Button exportStatisticsButton;
+    @FXML private ProgressIndicator statisticsProgressIndicator;
+    @FXML private Label statisticsStatusLabel;
+    @FXML private ImageView statisticsImageView;
+    @FXML private ComboBox<String> statisticsPlotComboBox;
+    @FXML private ComboBox<String> statisticsDbListComboBox;
+    @FXML private Button statisticsDbListButton;
+    @FXML private Button statisticsDbTestButton;
+    @FXML private ComboBox<String> statisticsTypeComboBox;
+
 
     // Database Setup tab
     @FXML private TextField xamppPathField;
@@ -168,6 +185,7 @@ public class MainController {
         logger.info("Initializing MainController");
         
         setupTooltips();
+        setupDatabaseComboBoxSync();
         
         countryCodeComboBox.getItems().setAll(ch.ehealth.levi.core.Conf.getAvailableCountryCodes());
         countryCodeComboBox.getSelectionModel().selectedItemProperty()
@@ -221,6 +239,16 @@ public class MainController {
         GuiLogAppender.setLogArea(logArea);
 
         selectLanguageMenuItem();
+        
+        // Statistics
+        statisticsPlotComboBox.getSelectionModel().selectedItemProperty()
+        .addListener((obs, old, val) -> {
+            String typeKey = statisticsTypeComboBox.getValue();
+            showSelectedPlot(getStatisticsOutputDir(typeKey), getSelectedStatisticsType());
+        });
+        
+        statisticsTypeComboBox.getItems().setAll(STATISTICS_TYPES.keySet());
+        statisticsTypeComboBox.getSelectionModel().selectFirst();
 
         refreshXamppStatus();
 
@@ -255,6 +283,181 @@ public class MainController {
     @FXML
     private void switchToItalian() {
         switchLanguage("it");
+    }
+    
+    // Statistics
+    private static final String RSCRIPT_EXECUTABLE = "Rscript";
+    
+    private static File scriptFile(String relativePath) {
+        return new File(System.getProperty("user.dir"), relativePath);
+    }
+    
+    private static final class StatisticsType {
+        final String scriptPath;
+        final java.util.LinkedHashMap<String, String> plotFiles; // Anzeigename -> Dateiname
+
+        StatisticsType(String scriptRelativePath, java.util.LinkedHashMap<String, String> plotFiles) {
+            this.scriptPath = scriptFile(scriptRelativePath).getAbsolutePath();
+            this.plotFiles = plotFiles;
+        }
+    }
+   
+    private static final java.util.LinkedHashMap<String, StatisticsType> STATISTICS_TYPES = new java.util.LinkedHashMap<>();
+    static {
+        java.util.LinkedHashMap<String, String> concepts = new java.util.LinkedHashMap<>();
+        concepts.put("Alle Konzepte", "concepts_all.png");
+        concepts.put("Nur aktive Konzepte", "concepts_onlyActive.png");
+        concepts.put("Mit Prozentanteil", "concepts_percentage.png");
+        STATISTICS_TYPES.put("Anzahl übersetzte Konzepte",
+                new StatisticsType("R/SNOMEDStatConcepts_forLEVI.R", concepts));
+
+        java.util.LinkedHashMap<String, String> translations = new java.util.LinkedHashMap<>();
+        translations.put("Alle Übersetzungen", "descriptions_pro_sprache_all.png");
+        translations.put("Nur Übersetzungen von aktiven Konzepten", "descriptions_pro_sprache_onlyActive.png");
+        STATISTICS_TYPES.put("Anzahl Übersetzungen",
+                new StatisticsType("R/SNOMEDStatDescr_forLEVI.R", translations));
+
+        java.util.LinkedHashMap<String, String> perHierarchy = new java.util.LinkedHashMap<>();
+        perHierarchy.put("Pro Hierarchie", "translations_pro_hierarchy.png");
+        STATISTICS_TYPES.put("Anzahl übersetzte Konzepte pro Hierarchie",
+                new StatisticsType("R/SNOMEDStatConceptsPerHierarchy_forLEVI.R", perHierarchy));
+    }
+    
+
+    private StatisticsType getSelectedStatisticsType() {
+        String key = statisticsTypeComboBox.getValue();
+        return (key != null) ? STATISTICS_TYPES.get(key) : STATISTICS_TYPES.values().iterator().next();
+    }
+
+    private String getStatisticsOutputDir(String typeKey) {
+        return configService.getCurrentConfig().getPaths().getOutputDirectory()
+                + File.separator + "statistics"
+                + File.separator + typeKey.replaceAll("[^a-zA-Z0-9]", "_");
+    }
+
+    @FXML
+    private void createStatistics() {
+        updateConfigFromUI();
+        AppConfig.DatabaseConfig db = configService.getCurrentConfig().getDatabase();
+
+        String typeKey = statisticsTypeComboBox.getValue();
+        StatisticsType type = getSelectedStatisticsType();
+        String outputDir = getStatisticsOutputDir(typeKey);
+
+        createStatisticsButton.setDisable(true);
+        exportStatisticsButton.setDisable(true);
+        statisticsTypeComboBox.setDisable(true);
+        statisticsPlotComboBox.setDisable(true);
+        statisticsProgressIndicator.setVisible(true);
+        statisticsStatusLabel.setText(I18nUtil.get("statistics.status.running"));
+
+        Task<Boolean> task = new Task<>() {
+            @Override
+            protected Boolean call() throws Exception {
+                ProcessBuilder pb = new ProcessBuilder(
+                        RSCRIPT_EXECUTABLE, type.scriptPath,
+                        "127.0.0.1",
+                        String.valueOf(db.getDbPort()),
+                        db.getUsername(),
+                        db.getPassword(),
+                        db.getDbName(),
+                        outputDir
+                );
+                pb.redirectErrorStream(true);
+                Process process = pb.start();
+
+                try (var reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[R] " + line);
+                    }
+                }
+
+                int exitCode = process.waitFor();
+                return exitCode == 0;
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            createStatisticsButton.setDisable(false);
+            statisticsTypeComboBox.setDisable(false);
+            statisticsProgressIndicator.setVisible(false);
+
+            boolean anyFileFound = type.plotFiles.values().stream()
+                    .anyMatch(name -> new File(outputDir, name).exists());
+
+            if (task.getValue() && anyFileFound) {
+                statisticsPlotComboBox.getItems().setAll(type.plotFiles.keySet());
+                statisticsPlotComboBox.setDisable(false);
+                statisticsPlotComboBox.getSelectionModel().selectFirst();
+                showSelectedPlot(outputDir, type);
+                exportStatisticsButton.setDisable(false);
+                statisticsStatusLabel.setText(I18nUtil.get("statistics.status.done"));
+            } else {
+                statisticsStatusLabel.setText(I18nUtil.get("statistics.status.error"));
+                showError(I18nUtil.get("error.title"), I18nUtil.get("statistics.status.error"));
+            }
+        });
+
+        task.setOnFailed(e -> {
+            createStatisticsButton.setDisable(false);
+            statisticsTypeComboBox.setDisable(false);
+            statisticsProgressIndicator.setVisible(false);
+            statisticsStatusLabel.setText(I18nUtil.get("statistics.status.error"));
+            Throwable ex = task.getException();
+            showError(I18nUtil.get("error.title"), ex != null ? ex.getMessage() : "unknown error");
+        });
+
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void showSelectedPlot(String outputDir, StatisticsType type) {
+        String selected = statisticsPlotComboBox.getValue();
+        if (selected == null) return;
+        String fileName = type.plotFiles.get(selected);
+        File imageFile = new File(outputDir, fileName);
+        if (imageFile.exists()) {
+            Image image = new Image(imageFile.toURI().toString(), false);
+            statisticsImageView.setImage(image);
+        }
+    }
+
+    @FXML
+    private void exportStatistics() {
+        String typeKey = statisticsTypeComboBox.getValue();
+        StatisticsType type = getSelectedStatisticsType();
+        String outputDir = getStatisticsOutputDir(typeKey);
+        String selected = statisticsPlotComboBox.getValue();
+        if (selected == null) return;
+        File sourceFile = new File(outputDir, type.plotFiles.get(selected));
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle(I18nUtil.get("statistics.button.export"));
+        fileChooser.setInitialFileName(sourceFile.getName());
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG", "*.png"));
+
+        File zielDatei = fileChooser.showSaveDialog(stage);
+        if (zielDatei != null) {
+            if (!zielDatei.getName().toLowerCase().endsWith(".png")) {
+                zielDatei = new File(zielDatei.getParentFile(), zielDatei.getName() + ".png");
+            }
+            try {
+                Files.copy(sourceFile.toPath(), zielDatei.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                statisticsStatusLabel.setText(zielDatei.getAbsolutePath());
+            } catch (IOException ex) {
+                showError(I18nUtil.get("error.title"), ex.getMessage());
+            }
+        }
+    }
+
+    private void setupDatabaseComboBoxSync() {
+        statisticsDbListComboBox.setItems(dbListComboBox.getItems());
+        dbListComboBox.valueProperty().bindBidirectional(statisticsDbListComboBox.valueProperty());
+        dbListComboBox.getEditor().textProperty()
+                .bindBidirectional(statisticsDbListComboBox.getEditor().textProperty());
     }
     
     private void switchLanguage(String languageCode) {
@@ -336,6 +539,8 @@ public class MainController {
     private void setupEventHandlers() {
         dbTestButton.setOnAction(e -> testDatabaseConnection());
         
+        statisticsDbTestButton.setOnAction(e -> testDatabaseConnection());
+        
         currentFileBrowseButton.setOnAction(e -> browseFile(currentFileField, I18nUtil.get("filechooser.current")));
         previousFileBrowseButton.setOnAction(e -> browseFile(previousFileField, I18nUtil.get("filechooser.previous")));
         outputDirBrowseButton.setOnAction(e -> browseDirectory(outputDirField, I18nUtil.get("filechooser.output")));
@@ -358,6 +563,9 @@ public class MainController {
         uploadGitHubButton.setOnAction(e -> uploadToGitHub());
 
         dbListButton.setOnAction(e -> loadAvailableDatabases(false));
+        
+        statisticsDbListButton.setOnAction(e -> loadAvailableDatabases(false));
+        
         dbListComboBox.getEditor().textProperty().addListener((obs, old, val) -> {
             updateConfigFromUI();
             dbNameDebounce.setOnFinished(e -> runPreflightCheck());
