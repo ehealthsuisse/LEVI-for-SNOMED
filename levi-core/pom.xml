@@ -55,6 +55,12 @@
             <artifactId>logback-classic</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.gitlab.dumonts</groupId>
+            <artifactId>hunspell</artifactId>
+            <version>2.1.2</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -12,11 +12,12 @@ import ch.ehealth.levi.core.export.ResultCollector;
 public class PropCsvProcessor extends CsvProcessor{
 	
 	private ResultCollector collector;
-	private static Conf conf = new Conf();
+	private final Conf conf;
 	
-	public PropCsvProcessor(CSVReader csvReader, ResultCollector collector) {
+	public PropCsvProcessor(CSVReader csvReader, ResultCollector collector, Conf conf) {
         super(csvReader);
         this.collector = collector;
+        this.conf = conf;
     }
 
 	 @Override

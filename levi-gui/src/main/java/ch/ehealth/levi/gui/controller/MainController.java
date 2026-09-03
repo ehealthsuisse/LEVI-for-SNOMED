@@ -41,12 +41,18 @@ import ch.ehealth.levi.core.db.SctReleaseFileScanner.SctRelease;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
+import ch.ehealth.levi.core.check.FrLexiconBuilder;
+import ch.ehealth.levi.core.check.HunspellSpellingChecker;
 
 /**
  * Main controller for the LEVI GUI application
@@ -77,6 +83,9 @@ public class MainController {
     @FXML private CheckBox eszettCheckBox;
     @FXML private CheckBox regexCheckBox;
     @FXML private CheckBox groupingCheckBox;
+    @FXML private TextField lexiconDirField;
+    @FXML private Button lexiconDirBrowseButton;
+    @FXML private Button lexiconBuildButton;
     
     @FXML private TextField currentFileField;
     @FXML private Button currentFileBrowseButton;
@@ -84,6 +93,16 @@ public class MainController {
     @FXML private Button previousFileBrowseButton;
     @FXML private TextField outputDirField;
     @FXML private Button outputDirBrowseButton;
+
+    // LexSync-SCT (FR-vs-CH Snomed comparison) input files
+    @FXML private TextField frDescriptionField;
+    @FXML private Button frDescriptionBrowseButton;
+    @FXML private TextField chDescriptionField;
+    @FXML private Button chDescriptionBrowseButton;
+    @FXML private TextField frLanguageRefsetField;
+    @FXML private Button frLanguageRefsetBrowseButton;
+    @FXML private TextField chLanguageRefsetField;
+    @FXML private Button chLanguageRefsetBrowseButton;
     
     @FXML private Button saveConfigButton;
     @FXML private Button loadConfigButton;
@@ -96,6 +115,7 @@ public class MainController {
     @FXML private Button translateDeltaButton;
     @FXML private Button eszettCheckButton;
     @FXML private Button notPublishedButton;
+    @FXML private Button snomedComparisonButton;
     
     @FXML private Button startButton;
     @FXML private Button cancelButton;
@@ -516,6 +536,7 @@ public class MainController {
         currentFileField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.current")));
         previousFileField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.previous")));
         outputDirField.setTooltip(new Tooltip(I18nUtil.get("tooltip.paths.output")));
+        lexiconDirField.setTooltip(new Tooltip(I18nUtil.get("tooltip.settings.lexiconDir")));
         githubRepoField.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.repo")));
         githubBranchField.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.branch")));
         githubTokenField.setTooltip(new Tooltip(I18nUtil.get("tooltip.github.token")));
@@ -544,6 +565,12 @@ public class MainController {
         currentFileBrowseButton.setOnAction(e -> browseFile(currentFileField, I18nUtil.get("filechooser.current")));
         previousFileBrowseButton.setOnAction(e -> browseFile(previousFileField, I18nUtil.get("filechooser.previous")));
         outputDirBrowseButton.setOnAction(e -> browseDirectory(outputDirField, I18nUtil.get("filechooser.output")));
+        frDescriptionBrowseButton.setOnAction(e -> browseFile(frDescriptionField, I18nUtil.get("filechooser.snomed.frDesc")));
+        chDescriptionBrowseButton.setOnAction(e -> browseFile(chDescriptionField, I18nUtil.get("filechooser.snomed.chDesc")));
+        frLanguageRefsetBrowseButton.setOnAction(e -> browseFile(frLanguageRefsetField, I18nUtil.get("filechooser.snomed.frLang")));
+        chLanguageRefsetBrowseButton.setOnAction(e -> browseFile(chLanguageRefsetField, I18nUtil.get("filechooser.snomed.chLang")));
+        lexiconDirBrowseButton.setOnAction(e -> browseDirectory(lexiconDirField, I18nUtil.get("filechooser.lexiconDir")));
+        lexiconBuildButton.setOnAction(e -> buildLexicon());
         
         saveConfigButton.setOnAction(e -> saveConfiguration());
         loadConfigButton.setOnAction(e -> loadConfiguration());
@@ -555,6 +582,7 @@ public class MainController {
         translateDeltaButton.setOnAction(e -> selectJob("translate-delta"));
         eszettCheckButton.setOnAction(e -> selectJob("eszett-check"));
         notPublishedButton.setOnAction(e -> selectJob("not-published"));
+        snomedComparisonButton.setOnAction(e -> selectJob("snomed-comparison"));
         translationCheckButton.setOnAction(e -> selectJob("translation-check"));
         
         startButton.setOnAction(e -> startJob());
@@ -589,6 +617,10 @@ public class MainController {
             validateConfiguration();
         });
         previousFileField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        frDescriptionField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        chDescriptionField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        frLanguageRefsetField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
+        chLanguageRefsetField.textProperty().addListener((obs, old, val) -> updateConfigFromUI());
         outputDirField.textProperty().addListener((obs, old, val) -> {
             updateConfigFromUI();
             validateConfiguration();
@@ -649,10 +681,15 @@ public class MainController {
             eszettCheckBox.setSelected(config.getSettings().isTransformEszett());
             regexCheckBox.setSelected(config.getSettings().isRegexCheck());
             groupingCheckBox.setSelected(config.getSettings().isGrouping());
+            lexiconDirField.setText(config.getSettings().getLexiconDir());
 
             currentFileField.setText(config.getPaths().getCurrentFile());
             previousFileField.setText(config.getPaths().getPreviousFile());
             outputDirField.setText(config.getPaths().getOutputDirectory());
+            frDescriptionField.setText(config.getPaths().getFrDescriptionPath());
+            chDescriptionField.setText(config.getPaths().getChDescriptionPath());
+            frLanguageRefsetField.setText(config.getPaths().getFrLanguageRefsetPath());
+            chLanguageRefsetField.setText(config.getPaths().getChLanguageRefsetPath());
 
             if (config.getGithub() != null) {
                 githubRepoField.setText(config.getGithub().getRepoUrl());
@@ -700,10 +737,15 @@ public class MainController {
         config.getSettings().setTransformEszett(eszettCheckBox.isSelected());
         config.getSettings().setRegexCheck(regexCheckBox.isSelected());
         config.getSettings().setGrouping(groupingCheckBox.isSelected());
+        config.getSettings().setLexiconDir(lexiconDirField.getText());
         
         config.getPaths().setCurrentFile(currentFileField.getText());
         config.getPaths().setPreviousFile(previousFileField.getText());
         config.getPaths().setOutputDirectory(outputDirField.getText());
+        config.getPaths().setFrDescriptionPath(frDescriptionField.getText());
+        config.getPaths().setChDescriptionPath(chDescriptionField.getText());
+        config.getPaths().setFrLanguageRefsetPath(frLanguageRefsetField.getText());
+        config.getPaths().setChLanguageRefsetPath(chLanguageRefsetField.getText());
 
         if (config.getGithub() != null) {
             config.getGithub().setRepoUrl(githubRepoField.getText());
@@ -867,9 +909,9 @@ public class MainController {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle(title);
         fileChooser.getExtensionFilters().addAll(
-            new FileChooser.ExtensionFilter(I18nUtil.get("filter.all.supported"), "*.csv", "*.tsv", "*.xlsx", "*.xls", "*.json"),
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.all.supported"), "*.csv", "*.tsv", "*.xlsx", "*.xls", "*.json", "*.txt"),
             new FileChooser.ExtensionFilter(I18nUtil.get("filter.csv"), "*.csv"),
-            new FileChooser.ExtensionFilter(I18nUtil.get("filter.tsv"), "*.tsv"),
+            new FileChooser.ExtensionFilter(I18nUtil.get("filter.tsv"), "*.tsv", "*.txt"),
             new FileChooser.ExtensionFilter(I18nUtil.get("filter.excel"), "*.xlsx", "*.xls"),
             new FileChooser.ExtensionFilter(I18nUtil.get("filter.json"), "*.json"),
             new FileChooser.ExtensionFilter(I18nUtil.get("filter.all.files"), "*.*")
@@ -905,6 +947,101 @@ public class MainController {
         if (selectedDir != null) {
             targetField.setText(selectedDir.getAbsolutePath());
         }
+    }
+
+    /**
+     * Returns the localized label of the first of the four LexSync input files
+     * that is empty, or {@code null} when all four are set.
+     */
+    private String missingSnomedFilePath(String frDesc, String chDesc, String frLang, String chLang) {
+        if (frDesc == null || frDesc.isEmpty()) return I18nUtil.get("jobs.lexsync.fr_desc");
+        if (chDesc == null || chDesc.isEmpty()) return I18nUtil.get("jobs.lexsync.ch_desc");
+        if (frLang == null || frLang.isEmpty()) return I18nUtil.get("jobs.lexsync.fr_lang");
+        if (chLang == null || chLang.isEmpty()) return I18nUtil.get("jobs.lexsync.ch_lang");
+        return null;
+    }
+
+    /**
+     * Builds the French spelling lexicon from the currently selected database
+     * and (optionally) stores it into the configured lexicon directory.
+     */
+    private void buildLexicon() {
+        updateConfigFromUI();
+        Conf conf = configService.toConf();
+
+        String dbName = configService.getCurrentConfig().getDatabase().getDbName();
+        if (dbName == null || dbName.isEmpty()) {
+            showError(I18nUtil.get("error.title"),
+                    I18nUtil.get("config.database.test.failure", I18nUtil.get("validation.dbname")));
+            return;
+        }
+        String refsetId = conf.getLanguageRefSetId("fr");
+        if (refsetId == null) {
+            showError(I18nUtil.get("error.title"),
+                    I18nUtil.get("config.settings.lexiconDir.build.norefset"));
+            return;
+        }
+
+        DirectoryChooser dirChooser = new DirectoryChooser();
+        dirChooser.setTitle(I18nUtil.get("filechooser.lexiconDir.build"));
+        String currentLexicon = lexiconDirField.getText();
+        if (currentLexicon != null && !currentLexicon.isEmpty()) {
+            File cur = new File(currentLexicon);
+            if (cur.exists() && cur.isDirectory()) {
+                dirChooser.setInitialDirectory(cur);
+            }
+        }
+        File outDirFile = dirChooser.showDialog(stage);
+        if (outDirFile == null) {
+            return;
+        }
+        final Path outDir = outDirFile.toPath();
+
+        lexiconBuildButton.setDisable(true);
+        statusLabel.setText(I18nUtil.get("config.settings.lexiconDir.build.progress"));
+        progressBar.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
+
+        Task<FrLexiconBuilder.FrLexiconResult> buildTask = new Task<FrLexiconBuilder.FrLexiconResult>() {
+            @Override
+            protected FrLexiconBuilder.FrLexiconResult call() throws Exception {
+                try (Connection conn = DriverManager.getConnection(
+                        conf.getSERVER_URL(), conf.getUSERNAME(), conf.getPASSWORD())) {
+                    FrLexiconBuilder.FrLexiconResult result = FrLexiconBuilder.build(conn, "fr", refsetId);
+                    FrLexiconBuilder.writeOutputs(result, outDir, new HunspellSpellingChecker());
+                    return result;
+                }
+            }
+        };
+
+        buildTask.setOnSucceeded(e -> {
+            FrLexiconBuilder.FrLexiconResult result = buildTask.getValue();
+            lexiconBuildButton.setDisable(false);
+            progressBar.setProgress(0);
+            statusLabel.setText("");
+            lexiconDirField.setText(outDir.toString());
+            updateConfigFromUI();
+            if (configService.getCurrentConfig() != null) {
+                configService.getCurrentConfig().getSettings().setLexiconDir(outDir.toString());
+            }
+            showInfo(I18nUtil.get("success.title"),
+                    I18nUtil.get("config.settings.lexiconDir.build.success",
+                            result.descriptions().size(),
+                            result.frequencies().size(),
+                            result.highFrequencyTokens().size(),
+                            result.lowFrequencyTokens().size()));
+        });
+
+        buildTask.setOnFailed(e -> {
+            lexiconBuildButton.setDisable(false);
+            progressBar.setProgress(0);
+            statusLabel.setText("");
+            Throwable ex = buildTask.getException();
+            logger.error("Lexicon build failed", ex);
+            showError(I18nUtil.get("error.title"),
+                    I18nUtil.get("config.settings.lexiconDir.build.failure", ex.getMessage()));
+        });
+
+        new Thread(buildTask).start();
     }
     
     @FXML
@@ -979,6 +1116,11 @@ public class MainController {
         logger.info("Job queue: {}", selectedJobTypes);
         updateJobButtonsState();
     }
+
+    /** True when the only selected job is the FR-vs-CH Snomed comparison. */
+    private boolean isSnomedOnlySelection() {
+        return selectedJobTypes.size() == 1 && selectedJobTypes.contains("snomed-comparison");
+    }
     
     private void startJob() {
         if (selectedJobTypes.isEmpty()) {
@@ -988,7 +1130,16 @@ public class MainController {
         }
         
         updateConfigFromUI();
-        String validationError = configService.validateConfig();
+        String validationError;
+        if (isSnomedOnlySelection()) {
+            // The FR-vs-CH Snomed comparison needs no DB and no current file;
+            // the four RF2 files are chosen per run. Only the output dir matters.
+            String outDir = configService.getCurrentConfig().getPaths().getOutputDirectory();
+            validationError = (outDir == null || outDir.isEmpty())
+                    ? I18nUtil.get("validation.outputdir") : null;
+        } else {
+            validationError = configService.validateConfig();
+        }
         if (validationError != null) {
             showError(I18nUtil.get("dialog.config.error.title"), validationError);
             return;
@@ -1044,6 +1195,22 @@ public class MainController {
                 int idx = translationCheckLanguageComboBox.getSelectionModel().getSelectedIndex();
                 String lang = idx == 1 ? "de" : (idx == 2 ? "it" : "fr");
                 task = jobService.createTranslationCheckTask(conf, lang);
+                break;
+            }
+            case "snomed-comparison": {
+                String frDesc = conf.getFrDescriptionPath();
+                String chDesc = conf.getChDescriptionPath();
+                String frLang = conf.getFrLanguageRefsetPath();
+                String chLang = conf.getChLanguageRefsetPath();
+                String missing = missingSnomedFilePath(frDesc, chDesc, frLang, chLang);
+                if (missing != null) {
+                    showError(I18nUtil.get("dialog.config.error.title"),
+                            I18nUtil.get("validation.snomed.files", missing));
+                    updateJobRunningState(false);
+                    updateJobButtonsState();
+                    return;
+                }
+                task = jobService.createSnomedComparisonTask(conf, frDesc, chDesc, frLang, chLang);
                 break;
             }
             default:
@@ -1157,7 +1324,14 @@ public class MainController {
                 stats.append(I18nUtil.get("results.statistics.additions")).append("   ").append(result.getAdditionsCount()).append("\n");
                 stats.append(I18nUtil.get("results.statistics.changes")).append("     ").append(result.getChangesCount()).append("\n");
                 stats.append(I18nUtil.get("results.statistics.inactivations")).append(" ").append(result.getInactivationsCount()).append("\n");
-                stats.append(I18nUtil.get("results.statistics.reactivations")).append(" ").append(result.getReactivationsCount()).append("\n\n");
+                stats.append(I18nUtil.get("results.statistics.reactivations")).append(" ").append(result.getReactivationsCount()).append("\n");
+                if ("desc-add".equals(result.getJobType())
+                        || "translate-delta".equals(result.getJobType())
+                        || "snomed-comparison".equals(result.getJobType())) {
+                    stats.append(I18nUtil.get("results.statistics.manualCheck"))
+                         .append("  ").append(result.getCheckFailCount()).append("\n");
+                }
+                stats.append("\n");
             }
             
             stats.append(I18nUtil.get("results.statistics.errors")).append("  ").append(result.getErrorsCount()).append("\n");
@@ -1175,7 +1349,9 @@ public class MainController {
     }
     
     private void updateJobButtonsState() {
-        startButton.setDisable(selectedJobTypes.isEmpty() || currentTask != null || !preflightOk);
+        boolean snomedOnly = isSnomedOnlySelection();
+        startButton.setDisable(selectedJobTypes.isEmpty() || currentTask != null
+                || (!preflightOk && !snomedOnly));
 
         updateJobButton(overviewButton,       I18nUtil.get("jobs.overview"),       "overview");
         updateJobButton(descAddButton,        I18nUtil.get("jobs.desc_add"),        "desc-add");
@@ -1183,6 +1359,7 @@ public class MainController {
         updateJobButton(translateDeltaButton, I18nUtil.get("jobs.translate_delta"), "translate-delta");
         updateJobButton(eszettCheckButton,    I18nUtil.get("jobs.eszett_check"),    "eszett-check");
         updateJobButton(notPublishedButton,   I18nUtil.get("jobs.not_published"),   "not-published");
+        updateJobButton(snomedComparisonButton, I18nUtil.get("jobs.snomed_comparison"), "snomed-comparison");
         updateJobButton(translationCheckButton, I18nUtil.get("jobs.translation_check"), "translation-check");
     }
 
@@ -1206,6 +1383,7 @@ public class MainController {
             case "eszett-check":    return I18nUtil.get("jobs.eszett_check");
             case "not-published":   return I18nUtil.get("jobs.not_published");
             case "translation-check": return I18nUtil.get("jobs.translation_check");
+            case "snomed-comparison": return I18nUtil.get("jobs.snomed_comparison");
             default:                return jobType;
         }
     }

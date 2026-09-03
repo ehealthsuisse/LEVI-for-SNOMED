@@ -13,6 +13,7 @@ public class ResultCollector {
 	private String type;
 	private List<String> data;
 	private List<ResultCollector> entries = new ArrayList<>();
+	private final Map<String, List<ResultCollector>> entriesByType = new HashMap<>();
 
 	/**
 	 * Maps description ID → concept ID for TRANSLATION_CHANGES and
@@ -31,7 +32,10 @@ public class ResultCollector {
 	}
 
 	private void addEntry(String type, List<String> data) {
-		entries.add(new ResultCollector(type, data));
+		ResultCollector entry = new ResultCollector(type, data);
+		entries.add(entry);
+		// Index by type so lookups are O(1) instead of re-scanning entries.
+		entriesByType.computeIfAbsent(type, k -> new ArrayList<>()).add(entry);
 	}
 
 	public void setFullNewTranslationPrevious(String conceptId, String fsn, String pt, String term,
@@ -120,7 +124,7 @@ public class ResultCollector {
 
 	
 	public List<ResultCollector> getEntriesByType(String type) {
-		return entries.stream().filter(e -> e.getType().equals(type)).collect(Collectors.toList());
+		return new ArrayList<>(entriesByType.getOrDefault(type, List.of()));
 	}
 
 	public List<ResultCollector> getAllEntries() {
@@ -143,19 +147,19 @@ public class ResultCollector {
 	}
 
 	public List<List<String>> getDataByType(String type) {
-		return entries.stream().filter(e -> e.getType().equals(type)).map(ResultCollector::getData)
+		return entriesByType.getOrDefault(type, List.of()).stream()
+				.map(ResultCollector::getData)
 				.collect(Collectors.toList());
 	}
 	
 	public List<String> getIdsByType(String type) {
-	    return entries.stream()
-	        .filter(e -> e.getType().equals(type))
+	    return entriesByType.getOrDefault(type, List.of()).stream()
 	        .map(e -> e.getData().get(0)) // Concept ID
 	        .collect(Collectors.toList());
 	}
 	
 	public boolean containsType(String type) {
-	    return entries.stream().anyMatch(e -> e.getType().equals(type));
+	    return entriesByType.containsKey(type);
 	}
 
 	public boolean isEmpty() {
@@ -190,6 +194,7 @@ public class ResultCollector {
 
 	public void clear() {
 		entries.clear();
+		entriesByType.clear();
 		descriptionToConceptId.clear();
 	}
 

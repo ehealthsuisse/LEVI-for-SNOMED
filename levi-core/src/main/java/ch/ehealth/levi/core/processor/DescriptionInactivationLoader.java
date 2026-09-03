@@ -24,7 +24,7 @@ public class DescriptionInactivationLoader {
         
         if (header != null) {
             for (Cell cell : header) {
-                String headerValue = getCellAsString(cell);
+                String headerValue = ExcelCellUtil.getCellAsString(cell);
                 if (headerValue != null && headerValue.toLowerCase().contains("language code".toLowerCase())) {
                     hasLanguageCode = true;
                     languageCodeColumnIndex = cell.getColumnIndex();
@@ -53,26 +53,26 @@ public class DescriptionInactivationLoader {
             String conceptId = null;
             
             if(!hasLanguageCode) { //for older version of inactivation files without language code column
-            	descriptionId = getCellAsString(row.getCell(0));
-				term = getCellAsString(row.getCell(2));
-				conceptId = getCellAsString(row.getCell(9));
+            	descriptionId = ExcelCellUtil.getCellAsString(row.getCell(0));
+				term = ExcelCellUtil.getCellAsString(row.getCell(2));
+				conceptId = ExcelCellUtil.getCellAsString(row.getCell(9));
 			} else { //for newer version of inactivation files with language code column
-	            descriptionId = getCellAsString(row.getCell(0));
-				term = getCellAsString(row.getCell(4));
-				conceptId = getCellAsString(row.getCell(2));
+	            descriptionId = ExcelCellUtil.getCellAsString(row.getCell(0));
+				term = ExcelCellUtil.getCellAsString(row.getCell(4));
+				conceptId = ExcelCellUtil.getCellAsString(row.getCell(2));
 				if (hasLanguageCode) {
-					language = getCellAsString(row.getCell(1));;
+					language = ExcelCellUtil.getCellAsString(row.getCell(1));;
 				}
 			}
 			
 			//if language code is present, use from the cell
 			if (hasLanguageCode && language == null) {
 				logger.error("There is a language code tab in the header, but no language code was found in the file. Please check the file.");
-				System.exit(0);
+				throw new IllegalStateException("Language code column present but no language code found in inactivation file.");
 			}
 			
 	        if (hasLanguageCode && languageCodeColumnIndex >= 0) {
-	            String dynamicLang = getCellAsString(row.getCell(languageCodeColumnIndex));
+	            String dynamicLang = ExcelCellUtil.getCellAsString(row.getCell(languageCodeColumnIndex));
 	            if (dynamicLang != null && !dynamicLang.isEmpty()) {
 	            	language = dynamicLang.trim().toLowerCase();
 	            }
@@ -92,22 +92,5 @@ public class DescriptionInactivationLoader {
 
 
  
-    private String getCellAsString(Cell cell) {
-	    if (cell == null) {
-	        return "";
-	    }
-	    switch (cell.getCellType()) {
-	        case STRING:
-	            return cell.getStringCellValue();
-	        case NUMERIC:
-	            return String.valueOf(cell.getNumericCellValue());
-	        case BOOLEAN:
-	            return String.valueOf(cell.getBooleanCellValue());
-	        case FORMULA:
-	            return cell.getCellFormula();
-	        default:
-	            return "";
-	    }
-	}	
 	
 }

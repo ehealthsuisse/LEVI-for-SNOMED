@@ -164,9 +164,16 @@ public class FrTranslationRuleCheckerTest {
     // ---------------- or3: soudures ----------------
 
     @Test
-    public void testOr3HyphenFails() {
-        assertHas(check("post-opératoire"), "or3", "fail");
-        assertHas(check("contre-indication"), "or3", "fail");
+    public void testOr3HyphenFailsPreferred() {
+        TranslationCheckContext ctx = new TranslationCheckContext("123", "", "", "post-opératoire", "fr", "",
+                "900000000000013009", "Preferred");
+        assertHas(check(ctx), "or3", "fail");
+    }
+
+    @Test
+    public void testOr3HyphenAcceptablePasses() {
+        assertHas(check("post-opératoire"), "or3", "pass");
+        assertHas(check("contre-indication"), "or3", "pass");
     }
 
     @Test
@@ -460,8 +467,15 @@ public class FrTranslationRuleCheckerTest {
     // ---------------- me1: substances without article ----------------
 
     @Test
-    public void testMe1ArticleAfterContainingFails() {
-        assertHas(check("produit contenant du paracétamol"), "me1", "fail");
+    public void testMe1ArticleAfterContainingFailsPreferred() {
+        TranslationCheckContext ctx = new TranslationCheckContext("123", "", "", "produit contenant du paracétamol", "fr", "",
+                "900000000000013009", "Preferred");
+        assertHas(check(ctx), "me1", "fail");
+    }
+
+    @Test
+    public void testMe1ArticleAfterContainingAcceptableUncertain() {
+        assertHas(check("produit contenant du paracétamol"), "me1", "uncertain");
     }
 
     @Test
@@ -674,6 +688,76 @@ public class FrTranslationRuleCheckerTest {
     @Test
     public void testSs4ChirugieFails() {
         assertHas(check("chirugie thoracique"), "ss4", "fail");
+    }
+
+    @Test
+    public void testSc3CytobandNotFailing() {
+        assertNotHas(check("17p11.2"), "sc3", "fail");
+        assertNotHas(check("Xp11.22"), "sc3", "fail");
+    }
+
+    @Test
+    public void testMultipleSpacesFails() {
+        assertHas(check("hypertension  artérielle"), "ss4", "fail");
+    }
+
+    @Test
+    public void testNfcNormalizedBeforeChecks() {
+        assertHas(check("otite aigue\u0308"), "or1", "fail");
+    }
+
+    @Test
+    public void testSc3DecimalStillFails() {
+        assertHas(check("1.5 mg"), "sc3", "fail");
+    }
+
+    @Test
+    public void testSe1ChemicalLocantSkipped() {
+        assertNotHas(check("N,N'-dimethylpiperazine"), "se1", "fail");
+        assertNotHas(check("45,X"), "se1", "fail");
+    }
+
+    @Test
+    public void testSe1CommaNoSpaceStillFails() {
+        assertHas(check("rouge,gonfle"), "se1", "fail");
+    }
+
+    @Test
+    public void testSc6MtDNANotFailing() {
+        assertNotHas(check("m.1555 A>G"), "sc6", "fail");
+        assertNotHas(check("A>G"), "sc6", "fail");
+    }
+
+    @Test
+    public void testSc6ComparisonStillFails() {
+        assertHas(check("taux < 5"), "sc6", "fail");
+    }
+
+    @Test
+    public void testLl1LatinFoetusPasses() {
+        assertNotHas(check("Tritrichomonas foetus"), "ll1", "fail");
+    }
+
+    @Test
+    public void testLl1OesophageStillFails() {
+        assertHas(check("oesophage"), "ll1", "fail");
+    }
+
+    @Test
+    public void testUm5SerotypeLSkipped() {
+        assertNotHas(check("serotype 9L"), "um5", "fail");
+        assertNotHas(check("type 2l"), "um5", "fail");
+    }
+
+    @Test
+    public void testUm5MgStillFails() {
+        assertHas(check("40mg"), "um5", "fail");
+    }
+
+    @Test
+    public void testAr2AdverbialSkipped() {
+        assertNotHas(check("au moins 10 figures"), "ar2", "fail");
+        assertNotHas(check("au plus 5 entites"), "ar2", "fail");
     }
 
     // ---------------- null safety ----------------

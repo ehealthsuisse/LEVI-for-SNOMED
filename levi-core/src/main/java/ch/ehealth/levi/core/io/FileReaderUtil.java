@@ -12,6 +12,7 @@ import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 
+import ch.ehealth.levi.core.Conf;
 import ch.ehealth.levi.core.export.ResultCollector;
 import ch.ehealth.levi.core.export.SimpleOverview;
 import ch.ehealth.levi.core.processor.DescriptionAdditionLoader;
@@ -34,14 +35,20 @@ public class FileReaderUtil {
 
 	private ResultCollector resultCollector;
 	private String languageCodeFilter;
+	private Conf conf;
 
 	public FileReaderUtil(ResultCollector collector) {
 		this(collector, null);
 	}
 
 	public FileReaderUtil(ResultCollector collector, String languageCodeFilter) {
+		this(collector, languageCodeFilter, new Conf());
+	}
+
+	public FileReaderUtil(ResultCollector collector, String languageCodeFilter, Conf conf) {
 		this.resultCollector = collector;
 		this.languageCodeFilter = languageCodeFilter;
+		this.conf = conf;
 	}
 
 	/**
@@ -88,15 +95,11 @@ public class FileReaderUtil {
 		} else if ("JSON".equals(fileType)) {
             // Read JSON file using ValueSetProcessor
             logger.info("Processing FHIR JSON file: {}", filePath);
-            try (FileReader fileReader = new FileReader(filePath)) {
-                StringBuilder jsonContent = new StringBuilder();
-                int ch;
-                while ((ch = fileReader.read()) != -1) {
-                    jsonContent.append((char) ch);
-                }
+            try {
+                String jsonContent = java.nio.file.Files.readString(java.nio.file.Paths.get(filePath));
 
-                FhirJsonValueSetProcessor processor = new FhirJsonValueSetProcessor(resultCollector);
-                processor.processValueSet(jsonContent.toString());
+                FhirJsonValueSetProcessor processor = new FhirJsonValueSetProcessor(resultCollector, conf);
+                processor.processValueSet(jsonContent);
             } catch (IOException e) {
                 logger.error("Error reading JSON file: {}", filePath, e);
             }
@@ -110,7 +113,7 @@ public class FileReaderUtil {
 
 				switch (fileType) {
 				case ".propcsv.csv":
-					new PropCsvProcessor(csvReader, resultCollector).process();
+					new PropCsvProcessor(csvReader, resultCollector, conf).process();
 					break;
 				case ".termspace.csv":
 					new SimpleOverview(csvReader, resultCollector).process(); //TODO: Implement Termspace CSV processing
@@ -133,7 +136,7 @@ public class FileReaderUtil {
 //					break;
  				default:
 					logger.warn("{} Not recognized. Please check the file type.", fileType);
-					System.exit(0);
+					throw new IllegalArgumentException("Unrecognized file type: " + fileType);
 				}
 
 

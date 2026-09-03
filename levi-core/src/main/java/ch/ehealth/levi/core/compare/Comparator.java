@@ -36,6 +36,22 @@ public class Comparator {
 	}
 
 	/**
+	 * Holds the comparator's database connection open across a sequence of
+	 * queries within a single job, avoiding a fresh connection per query.
+	 * Must be paired with {@link #releaseDbLease()} in a finally block.
+	 */
+	public void acquireDbLease() throws SQLException, ClassNotFoundException {
+		dbConnection.acquireLease();
+	}
+
+	/**
+	 * Releases the connection held by {@link #acquireDbLease()}.
+	 */
+	public void releaseDbLease() {
+		dbConnection.releaseLease();
+	}
+
+	/**
 	 * Fetches the latest active English FSN and preferred term for the given
 	 * concept IDs. Used by the translation-rule check to enrich the additions
 	 * rows with English context (columns 2/3 of the input TSV are placeholders).
@@ -71,6 +87,10 @@ public class Comparator {
 		languageColumnMap.put("fr", 5);
 		languageColumnMap.put("it", 6);
 
+		// O(1) lookup from concept ID to the index of its row in structuredFile
+		// (replaces the previous O(n) linear scan of the growing output list).
+		Map<String, Integer> conceptIdToRowIndex = new HashMap<>();
+
 		for (List<String> dbTerm : resultCollector.getDataByType("EXTENSION_TRANSLATION")) {
 
 			List<String> entry = new ArrayList<>(Collections.nCopies(7, "TODO"));
@@ -83,10 +103,10 @@ public class Comparator {
 
 			// Return index of the inner list of structuredFile. Now it knows on which index
 			// the concept ID is.
-			int indexOfSCTID = findInnerListIndex(structuredFile, conceptIDEntry);
+			int indexOfSCTID = conceptIdToRowIndex.getOrDefault(conceptIDEntry, -1);
 
 			// If concept ID is not found, add a new row to structuredFile
-			if (indexOfSCTID == -1 && structuredFile.size() > 0) {
+			if (indexOfSCTID == -1) {
 				entry.set(0, conceptIDEntry); // Concept ID
 				entry.set(2, status); // Status of concept
 				if ("900000000000003001".equalsIgnoreCase(typeId)) {
@@ -98,6 +118,8 @@ public class Comparator {
 					}
 				}
 				structuredFile.add(entry);
+				// Data rows start at index 1 (header is index 0)
+				conceptIdToRowIndex.put(conceptIDEntry, structuredFile.size() - 1);
 			} else {
 				// Update existing row if concept ID is found
 				List<String> structuredFileElement = structuredFile.get(indexOfSCTID);
@@ -145,15 +167,7 @@ public class Comparator {
 
 		//////////////// Starting with translation additions
 		// Step 1: Get all concept IDs from the resultCollector and fetch translations from the database
-		List<String> headerAdditions = new ArrayList<>(); 
-		
-		if (conf.checkRegex()) {
-			headerAdditions = Arrays.asList("Concept ID", "GB/US FSN Term (For reference only)", "Preferred Term (For reference only)",
-					"Translated Term", "Language Code", "Case significance", "TypeId", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Notes", "Quotes", "SoftHyphen", "SpaceAroundSlash", "Apostrophe", "Upper/lower case");;
-		} else {
-			headerAdditions = Arrays.asList("Concept ID", "GB/US FSN Term (For reference only)", "Preferred Term (For reference only)",
-					"Translated Term", "Language Code", "Case significance", "TypeId", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Notes");
-		}
+		List<String> headerAdditions = DeltaColumns.additionsHeader(conf.checkRegex());
 		
 		Set<String> conceptID = new HashSet<>();
 		for (String conceptIDentry : resultCollector.getIdsByType("NEW_TRANSLATION_CURRENT")) {
@@ -305,8 +319,7 @@ public class Comparator {
 	public List<List<String>> generateDescriptionInactivationDelta() throws IOException, SQLException, ClassNotFoundException {
 
 		logger.info("Starting with description inactivation delta...");
-		List<String> headerInactivation = Arrays.asList("Description ID","Language Code", "Concept ID", "Preferred Term (For reference only)", "Term (For reference only)", "Inactivation Reason", "Association Target ID 1",
-				"Association Target ID 2", "Association Target ID 3", "Association Target ID 4", "Notes");
+		List<String> headerInactivation = DeltaColumns.INACTIVATIONS;
 		List<List<String>> deltaInactivations = new ArrayList<>();
 		deltaInactivations.add(headerInactivation);
 		
@@ -427,10 +440,7 @@ public class Comparator {
 	}
 	
 	public List<List<String>> generateDescriptionChangesDelta(String type) throws IOException, SQLException, ClassNotFoundException {
-		List<String> headerChanges= Arrays.asList("Description ID", "Preferred Term (For reference only)", "Term (For reference only)",
-				"Case significance","Type","Language reference set","Acceptability","Language reference set","Acceptability",
-				"Language reference set","Acceptability","Language reference set","Acceptability","Language reference set",
-				"Acceptability","Notes");
+		List<String> headerChanges = DeltaColumns.CHANGES;
 		
 		List<List<String>> deltaChanges = new ArrayList<>();
 		deltaChanges.add(headerChanges);
@@ -447,11 +457,9 @@ public class Comparator {
 		List<List<String>> eszettInactivate = new ArrayList<>();
 		List<List<String>> eszettAdditions = new ArrayList<>();
 		
-		List<String> headerInactivate = Arrays.asList("Description ID", "Language Code", "Concept ID", "Preferred Term (For reference only)", "Term (For reference only)", "Inactivation Reason", "Association Target ID 1",
-				"Association Target ID 2", "Association Target ID 3", "Association Target ID 4", "Notes");
+		List<String> headerInactivate = DeltaColumns.INACTIVATIONS;
 		
-		List<String> headerAddition = Arrays.asList("Concept ID", "GB/US FSN Term (For reference only)", "Preferred Term (For reference only)",
-				"Translated Term", "Language Code", "Case significance", "TypeId", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Language reference set", "Acceptability", "Notes", "Quotes", "SoftHyphen", "SpaceAroundSlash", "Apostrophe", "Upper/lower case");
+		List<String> headerAddition = DeltaColumns.ADDITIONS_WITH_REGEX;
 		
 		eszettInactivate.add(headerInactivate);
 		eszettAdditions.add(headerAddition);
@@ -531,8 +539,7 @@ public class Comparator {
 		    final int INA_TERM          = 1;
 		    final int INA_LANGUAGECODE  = 2;
 			
-			List<String> headerInactivation = Arrays.asList("Description ID","Language Code", "Concept ID", "Preferred Term (For reference only)", "Term (For reference only)", "Inactivation Reason", "Association Target ID 1",
-					"Association Target ID 2", "Association Target ID 3", "Association Target ID 4", "Notes");
+			List<String> headerInactivation = DeltaColumns.INACTIVATIONS;
 			
 			
 			List<List<String>> deltaNotFoundTranslations = new ArrayList<>();
@@ -629,17 +636,6 @@ Function<List<String>, String> comboKeyCurr = row -> {
 
 	    logger.info("Duplicate term check: {} duplicates found.", result.size() - 1);
 	    return result;
-	}
-	
-	// Used to find the index of the concept that is already in the structuredList.
-	private static int findInnerListIndex(List<List<String>> outerList, String element) {
-		for (int i = 0; i < outerList.size(); i++) {
-			List<String> innerList = outerList.get(i);
-			if (innerList.contains(element)) {
-				return i; // Return the index of the inner list
-			}
-		}
-		return -1; // Return -1 if the element is not found in any inner list
 	}
 
 }

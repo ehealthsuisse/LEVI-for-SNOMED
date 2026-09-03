@@ -1,0 +1,10 @@
+descriptions	305361
+uniqueTokens	62366
+highFrequencyTokens	24670
+lowFrequencyTokens	37696
+category.unknown	43610
+category.eponym	7505
+category.inn	2355
+category.taxon	3607
+category.latin	1750
+category.acronym	3539

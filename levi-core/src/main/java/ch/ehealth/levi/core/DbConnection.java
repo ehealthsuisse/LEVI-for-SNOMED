@@ -41,19 +41,53 @@ public class DbConnection {
 	private ResultCollector resultCollector;
 	private final Conf conf;
 
+	// Connection lease counter. When > 0 the connection is held open across
+	// multiple queries within a single job; disconnect() becomes a no-op until
+	// the outermost lease is released. This avoids opening a new connection per
+	// query (see CompareManager.runWithSharedConnection).
+	private int connectionLease = 0;
+
 	public DbConnection(ResultCollector collector, Conf conf) {
 		this.resultCollector = collector;
 		this.conf = conf;
 	}
 
 	/**
-	 * Opens a new database connection.
+	 * Opens a database connection if none is currently open. Reuses an existing
+	 * open connection instead of opening a new one every time.
 	 *
 	 * @throws SQLException           If a database access error occurs.
 	 * @throws ClassNotFoundException If the JDBC driver class is not found.
 	 */
 	public void connect() throws SQLException, ClassNotFoundException {
+		if (connection != null && !connection.isClosed()) {
+			return; // reuse the already-open connection
+		}
 		connection = DriverManager.getConnection(conf.getSERVER_URL(), conf.getUSERNAME(), conf.getPASSWORD());
+	}
+
+	/**
+	 * Acquires a connection lease. While at least one lease is held the
+	 * connection is kept open across successive queries; {@link #disconnect()}
+	 * will not actually close it until the matching {@link #releaseLease()} is
+	 * called. The first call opens the connection if needed.
+	 */
+	public void acquireLease() throws SQLException, ClassNotFoundException {
+		connectionLease++;
+		connect();
+	}
+
+	/**
+	 * Releases a connection lease. When the last lease is released the
+	 * underlying connection is closed.
+	 */
+	public void releaseLease() {
+		if (connectionLease > 0) {
+			connectionLease--;
+		}
+		if (connectionLease == 0) {
+			disconnect();
+		}
 	}
 
 	/**
@@ -79,9 +113,14 @@ public class DbConnection {
 	}
 
 	/**
-	 * Closes the active database connection.
+	 * Closes the active database connection. When a connection lease is held
+	 * (see {@link #acquireLease()}) the connection is kept open until the last
+	 * lease is released.
 	 */
 	public void disconnect() {
+		if (connectionLease > 0) {
+			return; // still leased; keep the connection open
+		}
 		if (connection != null) {
 			try {
 				connection.close();

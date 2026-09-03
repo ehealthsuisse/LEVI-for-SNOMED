@@ -92,6 +92,13 @@
                             <ComboBox fx:id="languageFilterComboBox" prefWidth="100"/>
                         </HBox>
 
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Label text="%config.settings.lexiconDir"/>
+                            <TextField fx:id="lexiconDirField" promptText="%config.settings.lexiconDir.prompt" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                            <Button fx:id="lexiconDirBrowseButton" text="%config.paths.browse"/>
+                            <Button fx:id="lexiconBuildButton" text="%config.settings.lexiconDir.build"/>
+                        </HBox>
+
                         <Separator/>
 
                         <!-- File Paths -->
@@ -174,8 +181,31 @@
                                         maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
                                 <Button fx:id="notPublishedButton" text="%jobs.not_published"
                                         maxWidth="Infinity" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                                <Button fx:id="snomedComparisonButton" text="%jobs.snomed_comparison" 
+                                        maxWidth="Infinity" GridPane.columnIndex="0" GridPane.rowIndex="2" GridPane.columnSpan="3"/>
                             </GridPane>
                             <Label text="%main.tabs.delta.hint" wrapText="true" style="-fx-text-fill: #666666;"/>
+                            <Separator/>
+                            <Label text="%main.tabs.lexsync.title" style="-fx-font-weight: bold;"/>
+                            <GridPane hgap="10" vgap="8">
+                                <columnConstraints>
+                                    <ColumnConstraints percentWidth="25"/>
+                                    <ColumnConstraints percentWidth="60"/>
+                                    <ColumnConstraints percentWidth="15"/>
+                                </columnConstraints>
+                                <Label text="%jobs.lexsync.fr_desc" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                                <TextField fx:id="frDescriptionField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                                <Button fx:id="frDescriptionBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="0" maxWidth="Infinity"/>
+                                <Label text="%jobs.lexsync.ch_desc" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                                <TextField fx:id="chDescriptionField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                                <Button fx:id="chDescriptionBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="1" maxWidth="Infinity"/>
+                                <Label text="%jobs.lexsync.fr_lang" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                                <TextField fx:id="frLanguageRefsetField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                                <Button fx:id="frLanguageRefsetBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="2" maxWidth="Infinity"/>
+                                <Label text="%jobs.lexsync.ch_lang" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                                <TextField fx:id="chLanguageRefsetField" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+                                <Button fx:id="chLanguageRefsetBrowseButton" text="%config.paths.browse" GridPane.columnIndex="2" GridPane.rowIndex="3" maxWidth="Infinity"/>
+                            </GridPane>
                         </VBox>
                     </Tab>
 

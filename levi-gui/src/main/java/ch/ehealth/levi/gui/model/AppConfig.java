@@ -162,7 +162,10 @@ public class AppConfig {
         
         @JsonProperty("grouping")
         private boolean grouping = true;
-        
+
+        @JsonProperty("lexiconDir")
+        private String lexiconDir = "";
+
         public String getCountryCode() {
             return countryCode;
         }
@@ -202,6 +205,14 @@ public class AppConfig {
         public void setGrouping(boolean grouping) {
             this.grouping = grouping;
         }
+
+        public String getLexiconDir() {
+            return lexiconDir;
+        }
+
+        public void setLexiconDir(String lexiconDir) {
+            this.lexiconDir = lexiconDir;
+        }
     }
     
     public static class Paths {
@@ -213,6 +224,18 @@ public class AppConfig {
         
         @JsonProperty("outputDirectory")
         private String outputDirectory = "";
+
+        @JsonProperty("frDescriptionPath")
+        private String frDescriptionPath = "";
+
+        @JsonProperty("chDescriptionPath")
+        private String chDescriptionPath = "";
+
+        @JsonProperty("frLanguageRefsetPath")
+        private String frLanguageRefsetPath = "";
+
+        @JsonProperty("chLanguageRefsetPath")
+        private String chLanguageRefsetPath = "";
         
         public String getCurrentFile() {
             return currentFile;
@@ -236,6 +259,38 @@ public class AppConfig {
         
         public void setOutputDirectory(String outputDirectory) {
             this.outputDirectory = outputDirectory;
+        }
+
+        public String getFrDescriptionPath() {
+            return frDescriptionPath;
+        }
+
+        public void setFrDescriptionPath(String frDescriptionPath) {
+            this.frDescriptionPath = frDescriptionPath;
+        }
+
+        public String getChDescriptionPath() {
+            return chDescriptionPath;
+        }
+
+        public void setChDescriptionPath(String chDescriptionPath) {
+            this.chDescriptionPath = chDescriptionPath;
+        }
+
+        public String getFrLanguageRefsetPath() {
+            return frLanguageRefsetPath;
+        }
+
+        public void setFrLanguageRefsetPath(String frLanguageRefsetPath) {
+            this.frLanguageRefsetPath = frLanguageRefsetPath;
+        }
+
+        public String getChLanguageRefsetPath() {
+            return chLanguageRefsetPath;
+        }
+
+        public void setChLanguageRefsetPath(String chLanguageRefsetPath) {
+            this.chLanguageRefsetPath = chLanguageRefsetPath;
         }
     }
 

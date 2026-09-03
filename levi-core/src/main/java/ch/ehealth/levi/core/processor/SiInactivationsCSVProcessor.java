@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 
 public class SiInactivationsCSVProcessor extends CsvProcessor{
 
-		private static final Logger logger = LoggerFactory.getLogger(TermspaceInactivationsCsvProcessor.class);
+		private static final Logger logger = LoggerFactory.getLogger(SiInactivationsCSVProcessor.class);
 		private ResultCollector collector;
 		
 		public SiInactivationsCSVProcessor(CSVReader csvReader, ResultCollector collector, String languageCodeFilter) {

@@ -105,6 +105,8 @@ public class JobService {
                     
                     result.setAdditionsCount(manager.getLastAdditionsCount());
                     result.setChangesCount(manager.getLastChangesCount());
+                    result.setCheckPassCount(manager.getLastCheckPassCount());
+                    result.setCheckFailCount(manager.getLastCheckFailCount());
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
@@ -195,6 +197,8 @@ public class JobService {
                     result.setChangesCount(manager.getLastChangesCount());
                     result.setReactivationsCount(manager.getLastReactivationsCount());
                     result.setInactivationsCount(manager.getLastInactivationsCount());
+                    result.setCheckPassCount(manager.getLastCheckPassCount());
+                    result.setCheckFailCount(manager.getLastCheckFailCount());
                     
                     result.setManager(manager);
                     result.setSuccessful(true);
@@ -258,6 +262,14 @@ public class JobService {
                 JobResult result = new JobResult("translation-check");
 
                 try {
+                    // Point the French spelling checker at the configured lexicon (if any).
+                    // The checker reads this property when it is constructed, which happens
+                    // inside runTranslationCheck -> TranslationRuleCheckers.forLanguage.
+                    String lexiconDir = conf.getLexiconDir();
+                    if (lexiconDir != null && !lexiconDir.isBlank()) {
+                        System.setProperty("levi.spelling.lexiconDir", lexiconDir);
+                    }
+
                     CompareManager manager = new CompareManager(conf);
                     manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
 
@@ -272,6 +284,51 @@ public class JobService {
                     result.setSuccessful(true);
                 } catch (Exception e) {
                     logger.error("Error in translation check", e);
+                    result.setSuccessful(false);
+                    result.setErrorMessage(e.getMessage());
+                    throw e;
+                } finally {
+                    result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
+                }
+
+                return result;
+            }
+        };
+    }
+
+    /**
+     * Creates a task for the French-vs-Swiss Snomed comparison (LexSync-SCT port).
+     * The four RF2 file paths are chosen per run (via file chooser) and written
+     * to the configured output directory.
+     */
+    public Task<JobResult> createSnomedComparisonTask(Conf conf,
+            String frDescPath, String chDescPath, String frLangPath, String chLangPath) {
+        return new Task<JobResult>() {
+            @Override
+            protected JobResult call() throws Exception {
+                long startTime = System.currentTimeMillis();
+                updateMessage(I18nUtil.get("job.progress.snomed_comparison"));
+
+                JobResult result = new JobResult("snomed-comparison");
+
+                try {
+                    CompareManager manager = new CompareManager(conf);
+                    manager.setProgressListener((key, args) -> updateMessage(I18nUtil.get(key, args)));
+
+                    String destination = conf.getDestination();
+                    if (destination != null && !destination.endsWith("/") && !destination.endsWith("\\")) {
+                        destination += "/";
+                    }
+
+                    manager.runSnomedComparison(frDescPath, chDescPath, frLangPath, chLangPath, destination);
+
+                    result.setCheckPassCount(manager.getLastCheckPassCount());
+                    result.setCheckFailCount(manager.getLastCheckFailCount());
+
+                    result.setManager(manager);
+                    result.setSuccessful(true);
+                } catch (Exception e) {
+                    logger.error("Error in snomed comparison", e);
                     result.setSuccessful(false);
                     result.setErrorMessage(e.getMessage());
                     throw e;

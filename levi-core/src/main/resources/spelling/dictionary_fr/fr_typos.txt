@@ -1,0 +1,7 @@
+# French SNOMED CT known typos map
+# Format: typo=correction  (case-insensitive, one per line)
+chirugie=chirurgie
+malphighien=malpighien
+dèsvenlafaxine=desvenlafaxine
+cytogemalovirus=cytomégalovirus
+Cytogemalovirus=Cytomégalovirus

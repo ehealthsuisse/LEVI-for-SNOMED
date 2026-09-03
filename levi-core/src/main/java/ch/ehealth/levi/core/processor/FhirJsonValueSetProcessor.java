@@ -13,10 +13,11 @@ public class FhirJsonValueSetProcessor {
     private final FhirContext fhirContext = FhirContext.forR4();
     private final IParser jsonParser = fhirContext.newJsonParser();
     private final ResultCollector resultCollector;
-    private static Conf conf = new Conf();
+    private final Conf conf;
 
-    public FhirJsonValueSetProcessor(ResultCollector collector) {
+    public FhirJsonValueSetProcessor(ResultCollector collector, Conf conf) {
         this.resultCollector = collector;
+        this.conf = conf;
     }
     
     

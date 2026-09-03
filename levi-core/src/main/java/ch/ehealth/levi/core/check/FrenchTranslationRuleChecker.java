@@ -24,6 +24,26 @@ public class FrenchTranslationRuleChecker implements TranslationRuleChecker {
     private static final Map<String, RuleMetadata> RULES = buildRules();
     private static final Pattern UPPERCASE = Pattern.compile("[A-ZÀ-Ý]");
 
+    // Fix patterns: false-positive reduction
+    private static final Pattern ADVERBIAL_START = Pattern.compile("^(au moins|au plus|au maximum|au-delà)\\b");
+    private static final Pattern CHEM_LOCANT = Pattern.compile("\\b[A-Z],[A-Z]'?");
+    private static final Pattern CHEM_DIGIT = Pattern.compile("\\b\\d,\\d\\b");
+    private static final Pattern KARYOTYPE = Pattern.compile("\\b\\d{1,2},[XY](?!\\w)");
+    private static final Pattern CYTOBAND = Pattern.compile("\\b[0-9XY]+[pq][0-9]+(?:\\.[0-9]+)+\\b");
+    private static final Pattern MT_MUTATION = Pattern.compile("(?:m\\.\\d+\\s*)?[ATCG]>[ATCG]");
+    private static final Pattern LATIN_FOETUS = Pattern.compile("\\b[A-Z][a-zà-ÿéèêë]+ (?:foetus|foetal)s?\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SEROTYPE_L = Pattern.compile("\\b(?:sérotype|serotype|type|groupe|sérovar|sérogroupe)\\s+\\d+[Ll]\\b");
+
+    private final SpellingChecker spellingChecker;
+
+    public FrenchTranslationRuleChecker() {
+        this(new HunspellSpellingChecker());
+    }
+
+    public FrenchTranslationRuleChecker(SpellingChecker spellingChecker) {
+        this.spellingChecker = spellingChecker != null ? spellingChecker : new HunspellSpellingChecker();
+    }
+
     private static Map<String, RuleMetadata> buildRules() {
         Map<String, RuleMetadata> m = new LinkedHashMap<>();
         m.put("ss1", new RuleMetadata("ss1", "error", 17, "4.1",
@@ -270,12 +290,14 @@ public class FrenchTranslationRuleChecker implements TranslationRuleChecker {
 
     @Override
     public List<Finding> check(TranslationCheckContext ctx) {
-        String term = ctx.term() == null ? "" : ctx.term();
+        String rawTerm = ctx.term() == null ? "" : ctx.term();
+        String term = FrTokenizer.normalize(rawTerm).strip();
         String cid = ctx.conceptId() == null ? "" : ctx.conceptId();
         String acc = ctx.acceptability();
         List<Finding> findings = new ArrayList<>();
 
-        if (ARTICLE_START.matcher(term).find()) {
+        boolean isAdverbial = ADVERBIAL_START.matcher(term).find();
+        if (ARTICLE_START.matcher(term).find() && !isAdverbial) {
             String article = term.split("\\s+")[0];
             findings.add(find("ar2", "fail", "Article en début de terme (« " + article + " ») à supprimer"));
         }
@@ -291,21 +313,38 @@ public class FrenchTranslationRuleChecker implements TranslationRuleChecker {
             findings.add(find("se11", "fail", "Point final non autorisé en fin de terme (sauf exception)"));
         }
 
+        if (FrTokenizer.hasMultipleSpaces(term)) {
+            findings.add(find("ss4", "fail", "Espaces multiples consécutifs ; utiliser un seul espace entre les mots"));
+        }
+
         boolean salm = Pattern.compile("Salmonella\\b|\\d+[a-z]?\\d*:\\w").matcher(term).find();
         if (!salm) {
-            if (SPACE_BEFORE_COMMA.matcher(term).find()) {
+            String se1work = term;
+            if (CHEM_LOCANT.matcher(term).find() || CHEM_DIGIT.matcher(term).find() || KARYOTYPE.matcher(term).find()) {
+                se1work = term
+                        .replaceAll("\\b[A-Z],[A-Z]'?", "")
+                        .replaceAll("\\b\\d,\\d\\b", "")
+                        .replaceAll("\\b\\d{1,2},[XY](?!\\w)", "")
+                        .replaceAll("[Ss]érotype:", "");
+            }
+            if (SPACE_BEFORE_COMMA.matcher(se1work).find()) {
                 findings.add(find("se1", "fail", "Espace avant une virgule : coller la virgule au mot précédent"));
-            } else if (COMMA_NO_SPACE.matcher(term).find()) {
+            } else if (COMMA_NO_SPACE.matcher(se1work).find()) {
                 findings.add(find("se1", "fail", "Virgule non suivie d'un espace dans une énumération"));
             }
         }
 
-        if (DECIMAL_POINT.matcher(term).find()) {
+        String sc3work = CYTOBAND.matcher(term).find() ? term.replaceAll("\\b[0-9XY]+[pq][0-9]+(?:\\.[0-9]+)+\\b", "00") : term;
+        if (DECIMAL_POINT.matcher(sc3work).find()) {
             findings.add(find("sc3", "fail", "Séparateur décimal par point ; utiliser la virgule française"));
         }
-        if ((term.contains("<") || term.contains(">")) && !COMPARISON_NOTATION.matcher(term).find()) {
+        String sc6work = term;
+        if (MT_MUTATION.matcher(sc6work).find()) {
+            sc6work = sc6work.replaceAll("(?:m\\.\\d+\\s*)?[ATCG]>[ATCG]", "A G");
+        }
+        if ((sc6work.contains("<") || sc6work.contains(">")) && !COMPARISON_NOTATION.matcher(sc6work).find()) {
             findings.add(find("sc6", "fail", "Symbole de comparaison « < » ou « > » ; écrire « inférieur à » / « supérieur à » en clair"));
-        } else if (COMPARISON_NOTATION.matcher(term).find()) {
+        } else if (COMPARISON_NOTATION.matcher(sc6work).find()) {
             findings.add(find("sc6", "pass", "« >n< » noté en exposant/indice (notation chimique), pas un symbole de comparaison"));
         }
         if (term.contains("µ")) {
@@ -314,15 +353,23 @@ public class FrenchTranslationRuleChecker implements TranslationRuleChecker {
             findings.add(find("um8", "pass", "Micro noté « u » (ug) conformément à la règle"));
         }
 
-        if (LOWER_LITRE.matcher(term).find()) {
+        String um4work = term;
+        if (SEROTYPE_L.matcher(um4work).find()) {
+            um4work = um4work.replaceAll("\\b(?:sérotype|serotype|type|groupe|sérovar|sérogroupe)\\s+\\d+[Ll]\\b", "0");
+        }
+        if (LOWER_LITRE.matcher(um4work).find()) {
             findings.add(find("um4", "fail", "« l » minuscule pour litre ; utiliser la majuscule L (mL, /L)"));
-        } else if (UPPER_LITRE.matcher(term).find()) {
+        } else if (UPPER_LITRE.matcher(um4work).find()) {
             findings.add(find("um4", "pass", "Litre noté avec L majuscule"));
         }
 
-        if (NUMBER_UNIT_NO_SPACE.matcher(term).find()) {
+        String um5work = term;
+        if (SEROTYPE_L.matcher(um5work).find()) {
+            um5work = um5work.replaceAll("\\b(?:sérotype|serotype|type|groupe|sérovar|sérogroupe)\\s+\\d+[Ll]\\b", "0");
+        }
+        if (NUMBER_UNIT_NO_SPACE.matcher(um5work).find()) {
             findings.add(find("um5", "fail", "Espace manquant entre le nombre et l'unité de mesure"));
-        } else if (NUMBER_UNIT_SPACE.matcher(term).find()) {
+        } else if (NUMBER_UNIT_SPACE.matcher(um5work).find()) {
             findings.add(find("um5", "pass", "Espace correct entre nombre et unité"));
         }
         if (PERCENT_NO_SPACE.matcher(term).find()) {
@@ -338,8 +385,13 @@ public class FrenchTranslationRuleChecker implements TranslationRuleChecker {
         }
 
         if (SOLDABLE_HYPHEN.matcher(term).find()) {
-            findings.add(find("or3", "fail",
-                    "Trait d'union dans un mot composé à souder (ex. posttraumatique, postopératoire, contrindication)"));
+            if (TYPE_PREFERRED.equals(acc)) {
+                findings.add(find("or3", "fail",
+                        "Trait d'union dans un mot composé à souder (ex. posttraumatique, postopératoire, contrindication)"));
+            } else {
+                findings.add(find("or3", "pass",
+                        "Ancienne graphie avec trait d'union admise pour un synonyme acceptable"));
+            }
         }
 
         if (OLD_SPELLING.matcher(term).find()) {
@@ -374,23 +426,31 @@ public class FrenchTranslationRuleChecker implements TranslationRuleChecker {
         }
 
         // ---------- spelling checks (ss4) ----------
-        if (term.contains("chirugie")) {
-            findings.add(findWarning("ss4", "fail", "Faute d'orthographe : « chirugie » → « chirurgie »"));
-        }
-        if (term.contains("malphighien")) {
-            findings.add(findWarning("ss4", "fail", "Faute d'orthographe : « malphighien » → « malpighien »"));
-        }
-        if (term.contains("dèsvenlafaxine")) {
-            findings.add(findWarning("ss4", "fail", "Faute d'orthographe : « dèsvenlafaxine » → « desvenlafaxine »"));
-        }
-        if (term.contains("Cytogemalovirus")) {
-            findings.add(findWarning("ss4", "fail", "Faute d'orthographe : « Cytogemalovirus » → « Cytomégalovirus »"));
+        try {
+            List<SpellingIssue> issues = spellingChecker.check(term);
+            for (SpellingIssue si : issues) {
+                if (si.definiteTypo()) {
+                    String msg = "Faute d'orthographe : « " + si.token() + " » → « " + si.correction() + " »";
+                    findings.add(findWarning("ss4", "fail", msg));
+                } else if (si.correction() == null) {
+                    String sugPart = si.suggestions().isEmpty() ? "" : " (suggestions : " + String.join(", ", si.suggestions()) + ")";
+                    String msg = "Mot peut-être mal orthographié : « " + si.token() + " »" + sugPart;
+                    findings.add(findInfo("ss4", "uncertain", msg));
+                }
+            }
+        } catch (Exception e) {
+            // spelling check failure is not critical
         }
 
         // ---------- medicament hierarchy (me1/me2/me3) ----------
         if (DRUG_PRODUCT.matcher(term).find()) {
             if (ARTICLE_AFTER_CONTAINING.matcher(term).find()) {
-                findings.add(find("me1", "fail", "Article après « contenant » ; les substances sont listées sans article"));
+                if (TYPE_PREFERRED.equals(acc)) {
+                    findings.add(find("me1", "fail", "Article après « contenant » ; les substances sont listées sans article"));
+                } else {
+                    findings.add(findInfo("me1", "uncertain",
+                            "Article après « contenant » ; acceptable, règle me1 non stricte pour les synonymes"));
+                }
             }
             if (UNIQUEMENT.matcher(term).find()) {
                 findings.add(findInfo("me2", "uncertain",
@@ -522,7 +582,10 @@ public class FrenchTranslationRuleChecker implements TranslationRuleChecker {
         }
 
         // ---------- ligatures (ll1) ----------
-        if (LIGATURE_MISSING.matcher(term).find()) {
+        String ll1work = LATIN_FOETUS.matcher(term).find()
+                ? term.replaceAll("\\b[A-Z][a-zà-ÿéèêë]+ (?:foetus|foetal)s?\\b", "")
+                : term;
+        if (LIGATURE_MISSING.matcher(ll1work).find()) {
             findings.add(find("ll1", "fail",
                     "Ligature non employée (ex. « coeur »/« oesophage ») ; utiliser æ/œ (fœtal, œsophage, nævus)"));
         } else if (LIGATURE_USED.matcher(term).find()) {

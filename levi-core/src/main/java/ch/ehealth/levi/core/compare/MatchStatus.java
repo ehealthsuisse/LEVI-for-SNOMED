@@ -1,0 +1,13 @@
+package ch.ehealth.levi.core.compare;
+
+public enum MatchStatus {
+    IDENTICAL,
+    DIFFERENT_ACCEPTABILITY,
+    ACTIVE_FR_INACTIVE_CH,
+    ACTIVE_CH_INACTIVE_FR,
+    MISSING_IN_CH,
+    MISSING_IN_FR,
+    TERM_ON_DIFFERENT_CONCEPT,
+    AMBIGUOUS,
+    ACTIVE_CH_MISSING_IN_FR
+}

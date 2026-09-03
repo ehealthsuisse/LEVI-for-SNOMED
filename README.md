@@ -31,6 +31,7 @@ LEVI is designed for **national SNOMED CT release centers** and **translation te
 - [Workflow](#workflow)
 - [Input and Output Formats](#input-and-output-formats)
 - [Configuration](#configuration)
+- [French Spelling Lexicon](#french-spelling-lexicon)
 - [Dependencies](#dependencies-levi-core)
 - [Known Issues](#known-issues--limitations)
 - [Contributing](#contributing)
@@ -503,6 +504,110 @@ Large groups are automatically split into batches (default: 1,000 concepts per b
 - Input file (current translations)
 - Optional comparison file (previous translations)
 - Output directory for generated files
+
+---
+
+## French Spelling Lexicon
+
+When a French **translation check** runs, each term is tokenized (NFC-normalized, elision and hyphen handling) and every token is validated in this order:
+
+1. **Ebene 1 lexicon** – categorized vocabulary built from the national SNOMED release:
+   - high-frequency French medical vocabulary (≥ 3 occurrences),
+   - INN / substance names,
+   - Latin anatomical nomenclature,
+   - medical eponyms (case-sensitive),
+   - taxonomic genera (case-sensitive).
+2. **Hunspell fr_FR** dictionary – for anything not in the lexicon.
+3. **Typo map** (`fr_typos.txt`) – curated `typo=correction` entries reported as `ss4:fail` with the correction.
+
+Tokens accepted by the lexicon or Hunspell are treated as known; unknown tokens produce an `ss4:uncertain` finding with Hunspell suggestions.
+
+### Lexicon structure
+
+All language-specific data lives in a **per-language subdirectory** named `dictionary_<lang>/`:
+
+```
+spelling/
+└── dictionary_fr/                     ← bundled in the jar
+    ├── fr.dic / fr.aff                ← Hunspell dictionary
+    ├── fr_allowlist.txt               ← high-frequency tokens (case-insensitive)
+    ├── fr_inn.txt                     ← INN / substance names
+    ├── fr_latin.txt                   ← Latin anatomical nomenclature
+    ├── fr_eponyms.txt                 ← medical eponyms (case-sensitive)
+    ├── fr_taxons.txt                  ← taxonomic genera (case-sensitive)
+    ├── fr_typos.txt                   ← curated typo map (typo=correction)
+    ├── fr_acronyms.txt                ← acronym list (bundled for reference)
+    ├── fr_suspects.tsv                ← low-frequency suspects for manual review
+    └── fr_stats.txt                   ← summary statistics
+```
+
+The **GUI field** asks for the **lexicon root** – the directory that contains `dictionary_fr/` (and later `dictionary_de/`, `dictionary_it/` for German and Italian). The checker resolves the correct language subfolder automatically.
+
+### Creating the lexicon from the SNOMED database
+
+The builder reads all **active** French descriptions (with acceptability) from the `full_description` and `full_refset_Language` tables, tokenizes them, computes token frequencies and writes the categorized files into a `dictionary_fr/` subfolder.
+
+**Prerequisites**
+
+- A MySQL database with SNOMED CT data (see [SNOMED_Database](https://github.com/eHealth-Suisse/SNOMED_Database) or the LEVI *Database Setup* tab).
+- The language refset ID of the target country (CH French: `2021000195106`, FR French: `10031000315102`).
+
+**Command (from the repo root)**
+
+```bash
+mvn -pl levi-core compile exec:java \
+  -Dexec.mainClass=ch.ehealth.levi.core.check.FrLexiconBuilder \
+  -Dexec.args="jdbc:mysql://localhost:3306/snomed <user> <password> fr 2021000195106 /path/to/lexicon"
+```
+
+Or from the packaged JAR:
+
+```bash
+java -cp levi-core/target/levi-core-2.1.0-jar-with-dependencies.jar \
+  ch.ehealth.levi.core.check.FrLexiconBuilder \
+  jdbc:mysql://localhost:3306/snomed <user> <password> fr 2021000195106 /path/to/lexicon
+```
+
+The builder prints the number of processed descriptions and the runtime.
+
+### Output files
+
+Written into `<lexicon-root>/dictionary_fr/`:
+
+| File | Content | Behavior in the check |
+|------|---------|------------------------|
+| `fr_allowlist.txt` | high-frequency (≥ 3) French tokens not known to Hunspell | accepted, case-insensitive |
+| `fr_inn.txt` | INN / substance names | accepted, case-insensitive |
+| `fr_latin.txt` | Latin anatomical nomenclature | accepted, case-insensitive |
+| `fr_eponyms.txt` | medical eponyms (original casing) | accepted, **case-sensitive** |
+| `fr_taxons.txt` | taxonomic genera (original casing) | accepted, **case-sensitive** |
+| `fr_typos.txt` | `typo=correction` map | `ss4:fail` with correction |
+| `fr_suspects.tsv` | tokens with frequency 1–2 + context (term, concept, acceptability) | manual review queue |
+| `fr_stats.txt` | summary statistics | diagnostics |
+
+### Using the lexicon in the translation check
+
+**Option A – GUI (recommended):** in the LEVI GUI **Configuration** tab, set the **Spelling Lexicon** field to the **lexicon root** directory (the folder containing `dictionary_fr/`). Browse… or type it; the setting is persisted in the config file. When a French **Check translation** job runs, LEVI loads `dictionary_fr/` on top of the bundled seed files. Leave the field empty to use only the built-in seed lexicon.
+
+**Option A2 – build it in the GUI:** use the **Build Lexicon** button next to the field. LEVI builds the French lexicon directly from the currently selected database (country CH/FR/BE provide a French refset), writes it to `<chosen-root>/dictionary_fr/`, and fills the **Spelling Lexicon** field with the chosen root automatically so the next **Check translation** job uses it.
+
+**Option B – system property (CLI / no rebuild):** set the JVM property when launching LEVI (e.g. for the command-line interface). The default French checker picks the directory up automatically.
+
+```bash
+java -Dlevi.spelling.lexiconDir=/path/to/lexicon -jar levi-core-2.1.0-jar-with-dependencies.jar ...
+```
+
+**Option C – bundle into the jar (built-in default):** copy the generated `dictionary_fr/` folder into `levi-core/src/main/resources/spelling/` and rebuild. The lexicon then ships with the application.
+
+The French checker instance is created fresh for each check run, so a change to the configured directory takes effect on the next job without restarting. The same mechanism will later cover German and Italian via `dictionary_de/` and `dictionary_it/` – no additional GUI field is needed.
+
+### Updating and versioning
+
+1. Re-run the builder after each national release – token frequencies change with the data.
+2. Review `fr_suspects.tsv`: move correct tokens into the matching allow-list file; add real typos to `fr_typos.txt` (`typo=correction` per line).
+3. Re-run the translation check – known vocabulary disappears from the `ss4:uncertain` noise.
+
+Keep the generated lexicon directory under version control so changes stay reviewable. No extra native setup is needed on any platform: the Hunspell JNA binding bundles native libraries for Windows, macOS and Linux inside the jar.
 
 ---
 

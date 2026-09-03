@@ -190,11 +190,16 @@ public class ConfigService {
         conf.setTransformEszett(currentConfig.getSettings().isTransformEszett());
         conf.setRegexCheck(currentConfig.getSettings().isRegexCheck());
         conf.setGroupingEnabled(currentConfig.getSettings().isGrouping());
+        conf.setLexiconDir(currentConfig.getSettings().getLexiconDir());
         
         // Paths
         conf.setFilePathCurrent(currentConfig.getPaths().getCurrentFile());
         conf.setFilePathPrevious(currentConfig.getPaths().getPreviousFile());
         conf.setDestination(currentConfig.getPaths().getOutputDirectory());
+        conf.setFrDescriptionPath(currentConfig.getPaths().getFrDescriptionPath());
+        conf.setChDescriptionPath(currentConfig.getPaths().getChDescriptionPath());
+        conf.setFrLanguageRefsetPath(currentConfig.getPaths().getFrLanguageRefsetPath());
+        conf.setChLanguageRefsetPath(currentConfig.getPaths().getChLanguageRefsetPath());
         
         return conf;
     }

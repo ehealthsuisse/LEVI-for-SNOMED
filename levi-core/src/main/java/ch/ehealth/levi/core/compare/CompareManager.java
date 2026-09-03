@@ -4,14 +4,19 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.file.Path;
 
 import ch.ehealth.levi.core.Conf;
 import ch.ehealth.levi.core.check.Finding;
@@ -34,6 +39,7 @@ public class CompareManager {
 	private final Comparator comparator;
 	private final BatchExportService batchExportService;
 	private final boolean groupingEnabled;
+	private final Conf conf;
 	
     private ProgressListener progressListener;
 
@@ -53,6 +59,7 @@ public class CompareManager {
 	private final Map<String, Integer> lastCheckRuleCounts = new LinkedHashMap<>();
 
     public CompareManager(Conf conf) {
+        this.conf              = conf;
         this.resultCollector   = new ResultCollector();
         this.reader            = new FileReaderUtil(resultCollector, conf.getLanguageCodeFilter());
         this.writer            = new FileWriterUtil();
@@ -91,7 +98,12 @@ public class CompareManager {
 		reader.readFile(path);
 		
 		reportProgress("job.progress.creating_overview");
-		writer.writeToFile(destination + "TranslationOverview.tsv", comparator.createTranslationsOverview());
+		try {
+			comparator.acquireDbLease();
+			writer.writeToFile(destination + "TranslationOverview.tsv", comparator.createTranslationsOverview());
+		} finally {
+			comparator.releaseDbLease();
+		}
 	}
 
 	public void runDeltaDescAdditions(String path, String destination)
@@ -100,13 +112,19 @@ public class CompareManager {
 		reader.readFile(path);
 		
 		reportProgress("job.progress.generating_additions");
-		List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
-		lastAdditionsCount = Math.max(0, additions.size() - 1);
-		writer.writeToFile(destination + "DeltaDescAdditions.tsv", additions);
-		if(resultCollector.containsType("TRANSLATION_CHANGES")) {
-			List<List<String>> changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
-			lastChangesCount = Math.max(0, changes.size() - 1);
-			writer.writeToFile(destination + "DeltaDescChanges.tsv", changes);
+		try {
+			comparator.acquireDbLease();
+			List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
+			additions = runFrenchCheckAndSplit(additions, destination, "DeltaDescAdditions");
+			lastAdditionsCount = Math.max(0, additions.size() - 1);
+			writer.writeToFile(destination + "DeltaDescAdditions.tsv", additions);
+			if(resultCollector.containsType("TRANSLATION_CHANGES")) {
+				List<List<String>> changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
+				lastChangesCount = Math.max(0, changes.size() - 1);
+				writer.writeToFile(destination + "DeltaDescChanges.tsv", changes);
+			}
+		} finally {
+			comparator.releaseDbLease();
 		}
 	}
 	
@@ -115,9 +133,14 @@ public class CompareManager {
 		reader.readFile(path);
 		
 		reportProgress("job.progress.generating_inactivations");
-		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
-		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
-		writer.writeToFile(destination + "DeltaDescInactivations.tsv", inactivations);
+		try {
+			comparator.acquireDbLease();
+			List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
+			lastInactivationsCount = Math.max(0, inactivations.size() - 1);
+			writer.writeToFile(destination + "DeltaDescInactivations.tsv", inactivations);
+		} finally {
+			comparator.releaseDbLease();
+		}
 	}
 	
 	/**
@@ -150,42 +173,49 @@ public class CompareManager {
 	}
 
 	private void generateDeltaAndWrite(String destination) throws ClassNotFoundException, IOException, SQLException {
-		reportProgress("job.progress.generating_inactivations");
-		List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
-		lastInactivationsCount = Math.max(0, inactivations.size() - 1);
+		try {
+			comparator.acquireDbLease();
 
-        reportProgress("job.progress.generating_additions");
-		List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
-		lastAdditionsCount = Math.max(0, additions.size() - 1);
+			reportProgress("job.progress.generating_inactivations");
+			List<List<String>> inactivations = comparator.generateDescriptionInactivationDelta();
+			lastInactivationsCount = Math.max(0, inactivations.size() - 1);
 
-		reportProgress("job.progress.generating_changes");
-		List<List<String>> changes = null;
-		if (resultCollector.containsType("TRANSLATION_CHANGES")) {
-			changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
-			lastChangesCount = Math.max(0, changes.size() - 1);
-		}
+	        reportProgress("job.progress.generating_additions");
+			List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
+			additions = runFrenchCheckAndSplit(additions, destination, "DeltaDescAdditions");
+			lastAdditionsCount = Math.max(0, additions.size() - 1);
 
-		reportProgress("job.progress.generating_reactivations");
-		List<List<String>> reactivations = null;
-		if (resultCollector.containsType("TRANSLATION_REACTIVATION")) {
-			reactivations = comparator.generateDescriptionChangesDelta("TRANSLATION_REACTIVATION");
-			lastReactivationsCount = Math.max(0, reactivations.size() - 1);
-		}
-
-        reportProgress("job.progress.writing");
-		if (groupingEnabled) {
-				batchExportService.export(additions, changes, inactivations, reactivations,
-						resultCollector, destination);
-			} else {
-				writer.writeToFile(destination + "DeltaDescAdditions.tsv", additions);
-				if (changes != null) {
-					writer.writeToFile(destination + "DeltaDescChanges.tsv", changes);
-				}
-				if (reactivations != null) {
-					writer.writeToFile(destination + "DeltaDescReactivation.tsv", reactivations);
-				}
-				writer.writeToFile(destination + "DeltaDescInactivations.tsv", inactivations);
+			reportProgress("job.progress.generating_changes");
+			List<List<String>> changes = null;
+			if (resultCollector.containsType("TRANSLATION_CHANGES")) {
+				changes = comparator.generateDescriptionChangesDelta("TRANSLATION_CHANGES");
+				lastChangesCount = Math.max(0, changes.size() - 1);
 			}
+
+			reportProgress("job.progress.generating_reactivations");
+			List<List<String>> reactivations = null;
+			if (resultCollector.containsType("TRANSLATION_REACTIVATION")) {
+				reactivations = comparator.generateDescriptionChangesDelta("TRANSLATION_REACTIVATION");
+				lastReactivationsCount = Math.max(0, reactivations.size() - 1);
+			}
+
+	        reportProgress("job.progress.writing");
+			if (groupingEnabled) {
+					batchExportService.export(additions, changes, inactivations, reactivations,
+							resultCollector, destination);
+				} else {
+					writer.writeToFile(destination + "DeltaDescAdditions.tsv", additions);
+					if (changes != null) {
+						writer.writeToFile(destination + "DeltaDescChanges.tsv", changes);
+					}
+					if (reactivations != null) {
+						writer.writeToFile(destination + "DeltaDescReactivation.tsv", reactivations);
+					}
+					writer.writeToFile(destination + "DeltaDescInactivations.tsv", inactivations);
+				}
+		} finally {
+			comparator.releaseDbLease();
+		}
 	}
 	
 	public void runCheckEszettInExtension(String destination) throws ClassNotFoundException, IOException, SQLException {
@@ -193,12 +223,17 @@ public class CompareManager {
 		String fileName = "EszettInactivations.tsv";
 		int i = 0;
 		
-		for (List<List<String>> entry : comparator.checkEszettInExtension()) {
-			if (i > 0) {
-				fileName = "EszettAdditions.tsv";
+		try {
+			comparator.acquireDbLease();
+			for (List<List<String>> entry : comparator.checkEszettInExtension()) {
+				if (i > 0) {
+					fileName = "EszettAdditions.tsv";
+				}
+				writer.writeToFile(destination + fileName, entry);
+				i++;
 			}
-			writer.writeToFile(destination + fileName, entry);
-			i++;
+		} finally {
+			comparator.releaseDbLease();
 		}
 	}
 
@@ -211,10 +246,14 @@ public class CompareManager {
 
 		reportProgress("job.progress.finding_unpublished");
 		reportProgress("job.progress.writing");
-		List<List<String>> delta = comparator.generateDeltaOfNotPublishedTranslations();
-		lastNotPublishedCount = Math.max(0, delta.size() - 1);
-		writer.writeToFile(destination + "DeltaNotPublishedTranslations.tsv", delta);
-		
+		try {
+			comparator.acquireDbLease();
+			List<List<String>> delta = comparator.generateDeltaOfNotPublishedTranslations();
+			lastNotPublishedCount = Math.max(0, delta.size() - 1);
+			writer.writeToFile(destination + "DeltaNotPublishedTranslations.tsv", delta);
+		} finally {
+			comparator.releaseDbLease();
+		}
 	}
 
 	/**
@@ -230,15 +269,107 @@ public class CompareManager {
 		
 		reportProgress("job.progress.finding_unpublished");
 		reportProgress("job.progress.writing");
-		List<List<String>> delta = comparator.generateDeltaOfNotPublishedTranslations();
-		lastNotPublishedCount = Math.max(0, delta.size() - 1);
-		writer.writeToFile(destination + "DeltaNotPublishedTranslations.tsv", delta);
+		try {
+			comparator.acquireDbLease();
+			List<List<String>> delta = comparator.generateDeltaOfNotPublishedTranslations();
+			lastNotPublishedCount = Math.max(0, delta.size() - 1);
+			writer.writeToFile(destination + "DeltaNotPublishedTranslations.tsv", delta);
+		} finally {
+			comparator.releaseDbLease();
+		}
 	}
 	
 	public void runCheckDuplicateTerms(String destination) 
 	        throws IOException, ClassNotFoundException, SQLException {
-	    writer.writeToFile(destination + "DuplicateTerms.tsv", 
-	        comparator.checkDuplicateTerms());
+		try {
+			comparator.acquireDbLease();
+	    	writer.writeToFile(destination + "DuplicateTerms.tsv", 
+	    	        comparator.checkDuplicateTerms());
+		} finally {
+			comparator.releaseDbLease();
+		}
+	}
+
+	/**
+	 * Runs a French-vs-Swiss SNOMED extension comparison (ported from LexSync-SCT)
+	 * and produces the same output files as LexSync-SCT, plus split into the
+	 * LEVI G1–G15 change-type groups with batch splitting.
+	 *
+	 * <p>The five LexSync-SCT output files are written first:
+	 * {@code FR_DescriptionChanges.tsv}, {@code FR_DescriptionsAdditions.tsv},
+	 * {@code FR_DescriptionInactivations_INACTIVE_IN_FR_Inactivations.tsv},
+	 * {@code FR_DescriptionsAdditions_MISSING_IN_FR.tsv} and
+	 * {@code FR_DescriptionReactivations.tsv}.</p>
+	 *
+	 * <p>When grouping is enabled ({@link Conf#isGroupingEnabled()}) the same
+	 * comparison results are additionally exported into G1–G15 group files with
+	 * optional batch splitting (see {@link SnomedBatchExporter}).</p>
+	 *
+	 * @param frDescPath path to the FR sct2_Description file
+	 * @param chDescPath path to the CH sct2_Description file
+	 * @param frLangPath path to the FR der2_cRefset_Language file
+	 * @param chLangPath path to the CH der2_cRefset_Language file
+	 * @param destination output directory
+	 */
+	public void runSnomedComparison(String frDescPath, String chDescPath,
+			String frLangPath, String chLangPath, String destination)
+			throws IOException {
+		reportProgress("job.progress.reading");
+		SnomedLoader loader = new SnomedLoader();
+
+		var descFR = loader.loadDescriptions(Path.of(frDescPath));
+		var descCH = loader.loadDescriptions(Path.of(chDescPath));
+		var langFR = loader.loadLanguageRefset(Path.of(frLangPath));
+		var langCH = loader.loadLanguageRefset(Path.of(chLangPath));
+
+		var frFull = loader.enrich(descFR, langFR);
+		var chFull = loader.enrich(descCH, langCH);
+
+		reportProgress("job.progress.generating_additions");
+		var comparator = new SnomedComparator();
+		var results = comparator.compare(frFull, chFull);
+
+		// LexSync-SCT style flat output files
+		var exporter = new CsvExporter();
+		exporter.exportDescriptionChangesDelta(results, destination + "FR_DescriptionChanges.tsv");
+
+		// New French descriptions: run the full French translation-rule check.
+		// Rows that pass are written as before; rows with findings go into a
+		// separate manual-review file (<base>_toCheck.tsv).
+		List<MatchResult> additionsResults = results.stream()
+				.filter(r -> isAdditionStatus(r.status()))
+				.collect(Collectors.toList());
+
+		List<List<String>> additionsRows = MatchResultDeltas.buildAdditions(additionsResults);
+		List<List<String>> passedAdditions;
+		try {
+			passedAdditions = runFrenchCheckAndSplit(additionsRows, destination, "FR_DescriptionsAdditions");
+		} catch (ClassNotFoundException | SQLException e) {
+			throw new IOException("French lexicon check failed: " + e.getMessage(), e);
+		}
+		writer.writeToFile(destination + "FR_DescriptionsAdditions.tsv", passedAdditions);
+
+		exporter.exportActiveCHInactiveFRDelta(results, destination + "FR_DescriptionInactivations.tsv");
+		exporter.exportReactivationDelta(results, destination + "FR_DescriptionReactivations.tsv");
+
+		// LEVI G1–G15 grouping + batch splitting (when enabled). Only additions
+		// that passed the French check are grouped; all other results unchanged.
+		reportProgress("job.progress.writing");
+		if (groupingEnabled) {
+			Set<String> passedKeys = new HashSet<>();
+			for (int i = 1; i < passedAdditions.size(); i++) {
+				List<String> row = passedAdditions.get(i);
+				if (row != null && !row.isEmpty()) {
+					passedKeys.add(row.get(0) + "\t" + row.get(3));
+				}
+			}
+			List<MatchResult> groupable = results.stream()
+					.filter(r -> !isAdditionStatus(r.status()) || passedKeys.contains(resultKey(r)))
+					.collect(Collectors.toList());
+			new SnomedBatchExporter().exportGrouped(groupable, resultCollector, destination);
+		}
+
+		reportProgress("job.progress.done");
 	}
 
 	/**
@@ -279,9 +410,16 @@ public class CompareManager {
 		reportProgress("job.progress.fetching_db");
 		Map<String, String[]> enTerms = new HashMap<>();
 		try {
-			enTerms = comparator.fetchEnglishFsnAndPt(conceptIds);
-		} catch (SQLException | RuntimeException e) {
-			logger.warn("Could not fetch English FSN/PT from the database: {}", e.getMessage());
+			comparator.acquireDbLease();
+			try {
+				enTerms = comparator.fetchEnglishFsnAndPt(conceptIds);
+			} catch (SQLException | RuntimeException e) {
+				logger.warn("Could not fetch English FSN/PT from the database: {}", e.getMessage());
+			}
+		} catch (ClassNotFoundException e) {
+			logger.warn("Could not connect to the database for English FSN/PT: {}", e.getMessage());
+		} finally {
+			comparator.releaseDbLease();
 		}
 
 		reportProgress("job.progress.checking");
@@ -296,10 +434,7 @@ public class CompareManager {
 		lastCheckFailCount = 0;
 		lastCheckRuleCount = 0;
 
-		String headerAdditions = "Concept ID\tGB/US FSN Term (For reference only)\tPreferred Term (For reference only)"
-				+ "\tTranslated Term\tLanguage Code\tCase significance\tTypeId\tLanguage reference set\tAcceptability"
-				+ "\tLanguage reference set\tAcceptability\tLanguage reference set\tAcceptability"
-				+ "\tLanguage reference set\tAcceptability\tLanguage reference set\tAcceptability\tNotes";
+		String headerAdditions = String.join("\t", DeltaColumns.ADDITIONS);
 		String[] header = headerAdditions.split("\t");
 
 		for (List<String> row : rows) {
@@ -389,5 +524,140 @@ public class CompareManager {
 			name = name.substring(0, dot);
 		}
 		return name;
+	}
+
+	/**
+	 * Runs the full French translation-rule check (all rules incl. the ss4
+	 * lexicon/spelling check) over the French rows of an additions delta. Rows
+	 * that pass are returned (with the header row); rows that produce any
+	 * fail/uncertain finding are written to {@code <destination><base>_toCheck.tsv}
+	 * (same column layout as the additions delta, findings appended to the Notes
+	 * column) for manual review.
+	 *
+	 * @param additions   the additions delta (header at index 0)
+	 * @param destination output directory
+	 * @param base        base file name (e.g. {@code DeltaDescAdditions} or
+	 *                    {@code FR_DescriptionsAdditions})
+	 * @return the passed additions delta (header + passing rows)
+	 */
+	private List<List<String>> runFrenchCheckAndSplit(
+			List<List<String>> additions, String destination, String base)
+			throws IOException, SQLException, ClassNotFoundException {
+		reportProgress("job.progress.lexicon_check");
+
+		String lexiconDir = conf.getLexiconDir();
+		if (lexiconDir != null && !lexiconDir.isBlank()) {
+			System.setProperty("levi.spelling.lexiconDir", lexiconDir);
+		}
+		TranslationRuleChecker checker = TranslationRuleCheckers.forLanguage("fr");
+
+		Set<String> conceptIds = new LinkedHashSet<>();
+		for (int i = 1; i < additions.size(); i++) {
+			List<String> row = additions.get(i);
+			if (row != null && !row.isEmpty()) {
+				conceptIds.add(row.get(0));
+			}
+		}
+
+		Map<String, String[]> enTerms = new HashMap<>();
+		try {
+			comparator.acquireDbLease();
+			try {
+				enTerms = comparator.fetchEnglishFsnAndPt(conceptIds);
+			} catch (SQLException | RuntimeException e) {
+				logger.warn("Could not fetch English FSN/PT from the database: {}", e.getMessage());
+			}
+		} catch (ClassNotFoundException | SQLException | RuntimeException e) {
+			logger.warn("Could not connect to the database for English FSN/PT: {}", e.getMessage());
+		} finally {
+			comparator.releaseDbLease();
+		}
+
+		if (!destination.endsWith("/") && !destination.endsWith("\\")) {
+			destination += "/";
+		}
+
+		List<List<String>> passed = new ArrayList<>();
+		List<List<String>> toCheck = new ArrayList<>();
+		passed.add(new ArrayList<>(additions.get(0)));
+		toCheck.add(new ArrayList<>(additions.get(0)));
+
+		lastCheckRuleCounts.clear();
+		lastCheckPassCount = 0;
+		lastCheckUncertainCount = 0;
+		lastCheckFailCount = 0;
+		lastCheckRuleCount = 0;
+
+		for (int i = 1; i < additions.size(); i++) {
+			List<String> row = new ArrayList<>(additions.get(i));
+			while (row.size() < 18) {
+				row.add("");
+			}
+			String languageCode = row.get(4) == null ? "" : row.get(4).trim().toLowerCase(Locale.ROOT);
+			if (!"fr".equals(languageCode)) {
+				passed.add(row);
+				continue;
+			}
+
+			String conceptId = row.get(0);
+			String term = row.get(3);
+			String acc = row.get(8);
+			String existingNotes = row.get(17) == null ? "" : row.get(17);
+
+			String[] en = enTerms.get(conceptId);
+			String fsn = en == null || en[0] == null ? "" : en[0];
+			String pt = en == null || en[1] == null ? "" : en[1];
+
+			TranslationCheckContext ctx = new TranslationCheckContext(
+					conceptId, fsn, pt, term, row.get(4), row.get(5), row.get(6), acc);
+
+			List<String> tokens = new ArrayList<>();
+			boolean hasAnyFinding = false;
+			for (Finding f : checker.check(ctx)) {
+				hasAnyFinding = true;
+				if (f.needsNote()) {
+					tokens.add(f.status() + ":" + f.ruleId() + ":" + f.message());
+					lastCheckRuleCounts.merge(f.ruleId(), 1, Integer::sum);
+					lastCheckRuleCount++;
+					if ("fail".equals(f.status())) {
+						lastCheckFailCount++;
+					} else {
+						lastCheckUncertainCount++;
+					}
+				}
+			}
+
+			if (!hasAnyFinding) {
+				lastCheckPassCount++;
+				passed.add(row);
+			} else {
+				String joined = String.join(" ; ", tokens);
+				row.set(17, existingNotes.trim().isEmpty()
+						? joined
+						: existingNotes.trim() + " | " + joined);
+				toCheck.add(row);
+			}
+		}
+
+		if (toCheck.size() > 1) {
+			writer.writeToFile(destination + base + "_toCheck.tsv", toCheck);
+			logger.info("French lexicon check: {} row(s) need manual review ({}_toCheck.tsv).",
+					toCheck.size() - 1, base);
+		}
+		return passed;
+	}
+
+	/** True when the given comparison status represents a new-description addition. */
+	private static boolean isAdditionStatus(MatchStatus status) {
+		return status == MatchStatus.MISSING_IN_CH
+				|| status == MatchStatus.TERM_ON_DIFFERENT_CONCEPT
+				|| status == MatchStatus.MISSING_IN_FR;
+	}
+
+	/** Stable key (conceptId + term) for a comparison result, matching the additions row layout. */
+	private static String resultKey(MatchResult r) {
+		String conceptId = r.conceptId_FR() != null ? r.conceptId_FR()
+				: (r.conceptId_CH() != null ? r.conceptId_CH() : "");
+		return (conceptId == null ? "" : conceptId) + "\t" + (r.term() == null ? "" : r.term());
 	}
 }

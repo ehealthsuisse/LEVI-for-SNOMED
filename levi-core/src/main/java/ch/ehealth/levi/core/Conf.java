@@ -13,6 +13,12 @@ public class Conf {
 	private String filePathPrevious = "PATCH_TO_PREVIOUS_FILE"; // Path to the previous CSV/Excel file with the terms to be compared
 	private String destination = "DESTINATION_WEHER_TO_CREATE_FILES"; // Path where to create the three files	
 
+	// FR-vs-CH Snomed (LexSync-SCT) input files
+	private String frDescriptionPath; // FR sct2_Description RF2 file
+	private String chDescriptionPath; // CH sct2_Description RF2 file
+	private String frLanguageRefsetPath; // FR der2_cRefset_Language RF2 file
+	private String chLanguageRefsetPath; // CH der2_cRefset_Language RF2 file
+
 	// Database connection variables
 	private String SERVER_URL = "jdbc:mysql://localhost/---INSERT_DB_NAME---?useUnicode=true&characterEncoding=UTF-8";
 	private String USERNAME = "root";
@@ -24,6 +30,10 @@ public class Conf {
 	private boolean regexCheck = true; // true = regex check is performed on the terms in the current file
         private boolean groupingEnabled = true; // true = output files will be grouped into G1-G15 based on the change types of the concepts
         private String languageCodeFilter = null; // null = all languages, or "de", "fr", "it"
+        private String lexiconDir = null; // optional directory with the generated French spelling lexicon (see FrLexiconBuilder)
+        // Cached resolved (language -> refset id) map for the current country code,
+        // avoids repeated .toUpperCase() + map lookups on every DB row.
+        private Map<String, String> cachedLanguageRefSets = null;
 	
 	
 	
@@ -92,7 +102,23 @@ public class Conf {
     public void setFilePathPrevious(String filePathPrevious) {
     	this.filePathPrevious = filePathPrevious;
     }
-	
+    
+    public void setFrDescriptionPath(String frDescriptionPath) {
+    	this.frDescriptionPath = frDescriptionPath;
+    }
+    
+    public void setChDescriptionPath(String chDescriptionPath) {
+    	this.chDescriptionPath = chDescriptionPath;
+    }
+    
+    public void setFrLanguageRefsetPath(String frLanguageRefsetPath) {
+    	this.frLanguageRefsetPath = frLanguageRefsetPath;
+    }
+    
+    public void setChLanguageRefsetPath(String chLanguageRefsetPath) {
+    	this.chLanguageRefsetPath = chLanguageRefsetPath;
+    }
+    
 	public void setDestination(String destination) {
 		this.destination = destination;
 	}
@@ -122,7 +148,11 @@ public class Conf {
 	}
     
     private Map<String, String> getLanguageRefSets(String countryCode) {
-        return countryToLanguageRefSets.getOrDefault(countryCode.toUpperCase(), Collections.emptyMap());
+        if (cachedLanguageRefSets == null) {
+            cachedLanguageRefSets =
+                    countryToLanguageRefSets.getOrDefault(countryCode.toUpperCase(), Collections.emptyMap());
+        }
+        return cachedLanguageRefSets;
     }
 
     public String getLanguageRefSetId(String languageCode) {
@@ -147,6 +177,22 @@ public class Conf {
     
     public String getFilePathPrevious() {
 		return filePathPrevious;
+	}
+
+	public String getFrDescriptionPath() {
+		return frDescriptionPath;
+	}
+
+	public String getChDescriptionPath() {
+		return chDescriptionPath;
+	}
+
+	public String getFrLanguageRefsetPath() {
+		return frLanguageRefsetPath;
+	}
+
+	public String getChLanguageRefsetPath() {
+		return chLanguageRefsetPath;
 	}
 
 	public String getDestination() {
@@ -183,6 +229,14 @@ public class Conf {
 		return languageCodeFilter;
 	}
 
+	public void setLexiconDir(String lexiconDir) {
+		this.lexiconDir = lexiconDir;
+	}
+
+	public String getLexiconDir() {
+		return lexiconDir;
+	}
+
 	public void setLanguageCodeFilter(String languageCodeFilter) {
 		if (languageCodeFilter == null || languageCodeFilter.isEmpty()
 				|| "all".equalsIgnoreCase(languageCodeFilter)) {
@@ -198,6 +252,8 @@ public class Conf {
 	
     public void setCountryCode(String countryCode) {
         this.countryCode = countryCode;
+        // Invalidate the cached refset map when the country changes.
+        cachedLanguageRefSets = null;
     }
 	
         public boolean checkRegex() {
