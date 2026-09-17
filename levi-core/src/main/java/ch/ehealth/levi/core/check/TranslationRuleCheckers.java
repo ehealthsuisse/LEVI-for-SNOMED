@@ -3,8 +3,8 @@ package ch.ehealth.levi.core.check;
 import java.util.Locale;
 
 /**
- * Factory for language-specific translation rule checkers. French is
- * implemented; German and Italian checkers can be plugged in here later.
+ * Factory for language-specific translation rule checkers. French and Italian
+ * are implemented; German can be plugged in here later.
  *
  * <p>A fresh checker instance is returned per call so that the spelling
  * checker (and its lexicon directory, configurable at runtime) is created at
@@ -22,6 +22,10 @@ public final class TranslationRuleCheckers {
         switch (languageCode.toLowerCase(Locale.ROOT)) {
             case "fr":
                 return new FrenchTranslationRuleChecker();
+            case "it":
+                return new ItalianTranslationRuleChecker();
+            case "de":
+                return new GermanTranslationRuleChecker();
             default:
                 throw new UnsupportedOperationException(
                         "No translation rule checker implemented for language '" + languageCode + "'");

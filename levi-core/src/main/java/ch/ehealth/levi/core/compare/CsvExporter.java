@@ -1,7 +1,6 @@
 package ch.ehealth.levi.core.compare;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -35,8 +34,7 @@ public class CsvExporter {
 
         var relevant = results.stream().filter(r ->
             r.status() == MatchStatus.MISSING_IN_CH            ||
-            r.status() == MatchStatus.TERM_ON_DIFFERENT_CONCEPT||
-            r.status() == MatchStatus.MISSING_IN_FR
+            r.status() == MatchStatus.TERM_ON_DIFFERENT_CONCEPT
         ).toList();
 
         List<List<String>> rows = MatchResultDeltas.buildAdditions(relevant);
@@ -51,33 +49,24 @@ public class CsvExporter {
             .filter(r -> r.status() == MatchStatus.ACTIVE_CH_INACTIVE_FR)
             .toList();
 
-        var missingFR = results.stream()
-            .filter(r -> r.status() == MatchStatus.ACTIVE_CH_MISSING_IN_FR)
-            .toList();
-
         writeInactivationFile(inactiveFR, outputPath.replace(".tsv", "_INACTIVE_IN_FR_Inactivations.tsv"));
-        writeAdditionFile(missingFR, outputPath.replace(".tsv", "_MISSING_IN_FR.tsv"));
     }
 
-    private void writeAdditionFile(
-            List<MatchResult> rows, String outputPath) throws IOException {
+    /**
+     * Writes the CH descriptions that are active in CH but missing in the FR
+     * file to a separate output file using the additions column layout.
+     */
+    public void exportMissingInFRDelta(
+            List<MatchResult> results, String outputPath) throws IOException {
 
-        List<String> header = List.of(
-            "Concept ID", "Language Code", "Term", "Case Significance ID", "Type ID", "Acceptability"
-        );
-        List<List<String>> data = new ArrayList<>();
-        data.add(header);
+        var missingFR = results.stream()
+            .filter(r -> r.status() == MatchStatus.ACTIVE_CH_MISSING_IN_FR
+                      || r.status() == MatchStatus.MISSING_IN_FR)
+            .toList();
 
-        for (var r : rows) {
-            data.add(List.of(
-                safe(r.conceptId_CH()),
-                safe(r.languageCode()),
-                safe(r.term()),
-                "", "", ""
-            ));
-        }
-        writer.writeToFile(outputPath, data);
-        logger.info("{} -> {} rows", outputPath, rows.size());
+        List<List<String>> rows = MatchResultDeltas.buildAdditions(missingFR);
+        writer.writeToFile(outputPath, rows);
+        logger.info("{} -> {} rows", outputPath, missingFR.size());
     }
 
     private void writeInactivationFile(
@@ -106,9 +95,5 @@ public class CsvExporter {
             long count = results.stream().filter(r -> r.status() == status).count();
             if (count > 0) System.out.printf("%-35s: %d%n", status, count);
         }
-    }
-
-    private static String safe(String s) {
-        return s == null ? "" : s;
     }
 }

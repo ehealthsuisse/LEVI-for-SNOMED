@@ -22,8 +22,8 @@ public final class MatchResultDeltas {
     }
 
     /**
-     * Builds the additions delta (rows for MISSING_IN_CH, TERM_ON_DIFFERENT_CONCEPT
-     * and MISSING_IN_FR) including the header row at index 0.
+     * Builds the additions delta (rows for MISSING_IN_CH and
+     * TERM_ON_DIFFERENT_CONCEPT) including the header row at index 0.
      */
     public static List<List<String>> buildAdditions(List<MatchResult> results) {
         List<List<String>> delta = new ArrayList<>();
@@ -54,8 +54,8 @@ public final class MatchResultDeltas {
     }
 
     /**
-     * Builds the inactivations delta (rows for ACTIVE_CH_INACTIVE_FR and
-     * ACTIVE_CH_MISSING_IN_FR) including the header row.
+     * Builds the inactivations delta (rows for ACTIVE_CH_INACTIVE_FR)
+     * including the header row.
      */
     public static List<List<String>> buildInactivations(List<MatchResult> results) {
         List<List<String>> delta = new ArrayList<>();

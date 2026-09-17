@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 import ch.ehealth.levi.core.Conf;
+import ch.ehealth.levi.core.check.ItalianTranslationRuleChecker;
 import ch.ehealth.levi.core.check.Finding;
 import ch.ehealth.levi.core.check.FrenchTranslationRuleChecker;
 import ch.ehealth.levi.core.check.TranslationCheckContext;
@@ -182,7 +183,9 @@ public class CompareManager {
 
 	        reportProgress("job.progress.generating_additions");
 			List<List<String>> additions = comparator.generateDescriptionAdditionAndChangesDelta();
-			additions = runFrenchCheckAndSplit(additions, destination, "DeltaDescAdditions");
+			additions = runTranslationCheckAndSplit(additions, destination, "DeltaDescAdditions_FR", "fr");
+			additions = runTranslationCheckAndSplit(additions, destination, "DeltaDescAdditions_DE", "de");
+			additions = runTranslationCheckAndSplit(additions, destination, "DeltaDescAdditions_IT", "it");
 			lastAdditionsCount = Math.max(0, additions.size() - 1);
 
 			reportProgress("job.progress.generating_changes");
@@ -291,14 +294,14 @@ public class CompareManager {
 	}
 
 	/**
-	 * Runs a French-vs-Swiss SNOMED extension comparison (ported from LexSync-SCT)
-	 * and produces the same output files as LexSync-SCT, plus split into the
+	 * Runs the full French-vs-Swiss SNOMED extension comparison (ported from LexSync-SCT)
+	 * and produces the standard LexSync-SCT flat output files, plus split into the
 	 * LEVI G1–G15 change-type groups with batch splitting.
 	 *
-	 * <p>The five LexSync-SCT output files are written first:
+	 * <p>The flat output files are written first:
 	 * {@code FR_DescriptionChanges.tsv}, {@code FR_DescriptionsAdditions.tsv},
 	 * {@code FR_DescriptionInactivations_INACTIVE_IN_FR_Inactivations.tsv},
-	 * {@code FR_DescriptionsAdditions_MISSING_IN_FR.tsv} and
+	 * {@code FR_DescriptionsMissingInFR.tsv} and
 	 * {@code FR_DescriptionReactivations.tsv}.</p>
 	 *
 	 * <p>When grouping is enabled ({@link Conf#isGroupingEnabled()}) the same
@@ -350,6 +353,7 @@ public class CompareManager {
 		writer.writeToFile(destination + "FR_DescriptionsAdditions.tsv", passedAdditions);
 
 		exporter.exportActiveCHInactiveFRDelta(results, destination + "FR_DescriptionInactivations.tsv");
+		exporter.exportMissingInFRDelta(results, destination + "FR_DescriptionsMissingInFR.tsv");
 		exporter.exportReactivationDelta(results, destination + "FR_DescriptionReactivations.tsv");
 
 		// LEVI G1–G15 grouping + batch splitting (when enabled). Only additions
@@ -543,13 +547,29 @@ public class CompareManager {
 	private List<List<String>> runFrenchCheckAndSplit(
 			List<List<String>> additions, String destination, String base)
 			throws IOException, SQLException, ClassNotFoundException {
+		return runTranslationCheckAndSplit(additions, destination, base, "fr");
+	}
+
+	/**
+	 * Runs the translation-rule check over an additions delta for the given
+	 * language and splits output into passed / to-check files.
+	 *
+	 * @param additions   the additions delta (header at index 0)
+	 * @param destination output directory
+	 * @param base        base file name
+	 * @param languageCode the language code (e.g. "fr", "it")
+	 * @return the passed additions delta (header + passing rows)
+	 */
+	private List<List<String>> runTranslationCheckAndSplit(
+			List<List<String>> additions, String destination, String base, String languageCode)
+			throws IOException, SQLException, ClassNotFoundException {
 		reportProgress("job.progress.lexicon_check");
 
 		String lexiconDir = conf.getLexiconDir();
 		if (lexiconDir != null && !lexiconDir.isBlank()) {
 			System.setProperty("levi.spelling.lexiconDir", lexiconDir);
 		}
-		TranslationRuleChecker checker = TranslationRuleCheckers.forLanguage("fr");
+		TranslationRuleChecker checker = TranslationRuleCheckers.forLanguage(languageCode);
 
 		Set<String> conceptIds = new LinkedHashSet<>();
 		for (int i = 1; i < additions.size(); i++) {
@@ -593,8 +613,8 @@ public class CompareManager {
 			while (row.size() < 18) {
 				row.add("");
 			}
-			String languageCode = row.get(4) == null ? "" : row.get(4).trim().toLowerCase(Locale.ROOT);
-			if (!"fr".equals(languageCode)) {
+			String rowLanguageCode = row.get(4) == null ? "" : row.get(4).trim().toLowerCase(Locale.ROOT);
+			if (!languageCode.equals(rowLanguageCode)) {
 				passed.add(row);
 				continue;
 			}
@@ -641,8 +661,8 @@ public class CompareManager {
 
 		if (toCheck.size() > 1) {
 			writer.writeToFile(destination + base + "_toCheck.tsv", toCheck);
-			logger.info("French lexicon check: {} row(s) need manual review ({}_toCheck.tsv).",
-					toCheck.size() - 1, base);
+			logger.info("{} lexicon check: {} row(s) need manual review ({}_toCheck.tsv).",
+					languageCode, toCheck.size() - 1, base);
 		}
 		return passed;
 	}
@@ -650,8 +670,7 @@ public class CompareManager {
 	/** True when the given comparison status represents a new-description addition. */
 	private static boolean isAdditionStatus(MatchStatus status) {
 		return status == MatchStatus.MISSING_IN_CH
-				|| status == MatchStatus.TERM_ON_DIFFERENT_CONCEPT
-				|| status == MatchStatus.MISSING_IN_FR;
+				|| status == MatchStatus.TERM_ON_DIFFERENT_CONCEPT;
 	}
 
 	/** Stable key (conceptId + term) for a comparison result, matching the additions row layout. */

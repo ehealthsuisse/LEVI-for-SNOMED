@@ -52,6 +52,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import ch.ehealth.levi.core.check.FrLexiconBuilder;
+import ch.ehealth.levi.core.check.ItLexiconBuilder;
 import ch.ehealth.levi.core.check.HunspellSpellingChecker;
 
 /**
@@ -1039,6 +1040,89 @@ public class MainController {
             logger.error("Lexicon build failed", ex);
             showError(I18nUtil.get("error.title"),
                     I18nUtil.get("config.settings.lexiconDir.build.failure", ex.getMessage()));
+        });
+
+        new Thread(buildTask).start();
+    }
+
+    /**
+     * Builds the Italian spelling lexicon from the currently selected database.
+     */
+    @FXML
+    private void buildItalianLexicon() {
+        updateConfigFromUI();
+        Conf conf = configService.toConf();
+
+        String dbName = configService.getCurrentConfig().getDatabase().getDbName();
+        if (dbName == null || dbName.isEmpty()) {
+            showError(I18nUtil.get("error.title"),
+                    I18nUtil.get("config.database.test.failure", I18nUtil.get("validation.dbname")));
+            return;
+        }
+        String refsetId = conf.getLanguageRefSetId("it");
+        if (refsetId == null) {
+            showError(I18nUtil.get("error.title"),
+                    I18nUtil.get("config.settings.lexiconDir.build.norefset.it"));
+            return;
+        }
+
+        DirectoryChooser dirChooser = new DirectoryChooser();
+        dirChooser.setTitle(I18nUtil.get("filechooser.lexiconDir.build"));
+        String currentLexicon = lexiconDirField.getText();
+        if (currentLexicon != null && !currentLexicon.isEmpty()) {
+            File cur = new File(currentLexicon);
+            if (cur.exists() && cur.isDirectory()) {
+                dirChooser.setInitialDirectory(cur);
+            }
+        }
+        File outDirFile = dirChooser.showDialog(stage);
+        if (outDirFile == null) {
+            return;
+        }
+        final Path outDir = outDirFile.toPath();
+
+        lexiconBuildButton.setDisable(true);
+        statusLabel.setText(I18nUtil.get("config.settings.lexiconDir.build.progress.it"));
+        progressBar.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
+
+        Task<ItLexiconBuilder.ItLexiconResult> buildTask = new Task<ItLexiconBuilder.ItLexiconResult>() {
+            @Override
+            protected ItLexiconBuilder.ItLexiconResult call() throws Exception {
+                try (Connection conn = DriverManager.getConnection(
+                        conf.getSERVER_URL(), conf.getUSERNAME(), conf.getPASSWORD())) {
+                    ItLexiconBuilder.ItLexiconResult result = ItLexiconBuilder.build(conn, "it", refsetId);
+                    ItLexiconBuilder.writeOutputs(result, outDir, new HunspellSpellingChecker("it"));
+                    return result;
+                }
+            }
+        };
+
+        buildTask.setOnSucceeded(e -> {
+            ItLexiconBuilder.ItLexiconResult result = buildTask.getValue();
+            lexiconBuildButton.setDisable(false);
+            progressBar.setProgress(0);
+            statusLabel.setText("");
+            lexiconDirField.setText(outDir.toString());
+            updateConfigFromUI();
+            if (configService.getCurrentConfig() != null) {
+                configService.getCurrentConfig().getSettings().setLexiconDir(outDir.toString());
+            }
+            showInfo(I18nUtil.get("success.title"),
+                    I18nUtil.get("config.settings.lexiconDir.build.success.it",
+                            result.descriptions().size(),
+                            result.frequencies().size(),
+                            result.highFrequencyTokens().size(),
+                            result.lowFrequencyTokens().size()));
+        });
+
+        buildTask.setOnFailed(e -> {
+            lexiconBuildButton.setDisable(false);
+            progressBar.setProgress(0);
+            statusLabel.setText("");
+            Throwable ex = buildTask.getException();
+            logger.error("Italian lexicon build failed", ex);
+            showError(I18nUtil.get("error.title"),
+                    I18nUtil.get("config.settings.lexiconDir.build.failure.it", ex.getMessage()));
         });
 
         new Thread(buildTask).start();

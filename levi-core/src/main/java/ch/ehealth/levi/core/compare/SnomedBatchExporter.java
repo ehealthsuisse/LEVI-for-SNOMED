@@ -33,10 +33,9 @@ public class SnomedBatchExporter {
             String destination) throws IOException {
 
         List<MatchResult> additions = filter(results, MatchStatus.MISSING_IN_CH,
-                MatchStatus.TERM_ON_DIFFERENT_CONCEPT, MatchStatus.MISSING_IN_FR);
+                MatchStatus.TERM_ON_DIFFERENT_CONCEPT);
         List<MatchResult> changes = filter(results, MatchStatus.DIFFERENT_ACCEPTABILITY);
-        List<MatchResult> inactivations = filter(results, MatchStatus.ACTIVE_CH_INACTIVE_FR,
-                MatchStatus.ACTIVE_CH_MISSING_IN_FR);
+        List<MatchResult> inactivations = filter(results, MatchStatus.ACTIVE_CH_INACTIVE_FR);
         List<MatchResult> reactivations = filter(results, MatchStatus.ACTIVE_FR_INACTIVE_CH);
 
         batchExportService.export(

@@ -1,5 +1,6 @@
 package ch.ehealth.levi.core.compare;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,33 +23,33 @@ public class SnomedComparator {
         // Index: conceptId + term -> entry
         Map<ConceptTermKey, DescriptionWithAcceptability> frByConceptTerm =
             frList.stream().collect(Collectors.toMap(
-                d -> new ConceptTermKey(d.conceptId(), d.term()),
+                d -> key(d.conceptId(), d.term()),
                 d -> d, (a, b) -> a));
 
         Map<ConceptTermKey, DescriptionWithAcceptability> chByConceptTerm =
             chList.stream().collect(Collectors.toMap(
-                d -> new ConceptTermKey(d.conceptId(), d.term()),
+                d -> key(d.conceptId(), d.term()),
                 d -> d, (a, b) -> a));
 
         // Index: term -> set of conceptIds (for TERM_ON_DIFFERENT_CONCEPT)
         Map<String, Set<String>> chTermToConcepts = new HashMap<>();
         for (var ch : chList) {
             chTermToConcepts
-                .computeIfAbsent(ch.term(), k -> new HashSet<>())
-                .add(ch.conceptId());
+                .computeIfAbsent(normalize(ch.term()), k -> new HashSet<>())
+                .add(normalize(ch.conceptId()));
         }
 
         // ── Iterate FR ──────────────────────────────────────────────
         for (var fr : frList) {
-            var key = new ConceptTermKey(fr.conceptId(), fr.term());
+            var key = key(fr.conceptId(), fr.term());
             var ch  = chByConceptTerm.get(key);
 
             if (ch == null) {
                 // Not found in CH by conceptId+term
                 Set<String> otherConcepts = chTermToConcepts
-                    .getOrDefault(fr.term(), Set.of())
+                    .getOrDefault(normalize(fr.term()), Set.of())
                     .stream()
-                    .filter(cid -> !cid.equals(fr.conceptId()))
+                    .filter(cid -> !cid.equals(normalize(fr.conceptId())))
                     .collect(Collectors.toSet());
 
                 if (!otherConcepts.isEmpty()) {
@@ -87,28 +88,63 @@ public class SnomedComparator {
             }
         }
 
-        // ── Iterate CH to find MISSING_IN_FR ────────────────────────
+        // ── Iterate CH to find entries missing in FR ────────────────
         Map<String, Set<String>> frTermToConcepts = new HashMap<>();
         for (var fr : frList) {
             frTermToConcepts
-                .computeIfAbsent(fr.term(), k -> new HashSet<>())
-                .add(fr.conceptId());
+                .computeIfAbsent(normalize(fr.term()), k -> new HashSet<>())
+                .add(normalize(fr.conceptId()));
         }
 
         for (var ch : chList) {
-            var key = new ConceptTermKey(ch.conceptId(), ch.term());
+            var key = key(ch.conceptId(), ch.term());
             if (!frByConceptTerm.containsKey(key)) {
-                // Only flag active CH French descriptions as candidates for inactivation
-                if ("1".equals(ch.active()) && "fr".equals(ch.languageCode())) {
+                // Only active CH descriptions are tracked; inactive ones are skipped
+                if (!isActive(ch.active())) {
+                    continue;
+                }
+                // Term may exist in FR under a different concept
+                Set<String> otherConcepts = frTermToConcepts
+                    .getOrDefault(normalize(ch.term()), Set.of())
+                    .stream()
+                    .filter(cid -> !cid.equals(normalize(ch.conceptId())))
+                    .collect(Collectors.toSet());
+
+                if (!otherConcepts.isEmpty()) {
+                    results.add(buildResult(null, ch, MatchStatus.TERM_ON_DIFFERENT_CONCEPT,
+                        "Term exists in FR under different concept(s): " + otherConcepts));
+                } else if (isFrench(ch.languageCode())) {
                     results.add(buildResult(null, ch, MatchStatus.ACTIVE_CH_MISSING_IN_FR,
                         "Term+ConceptId not found in FR file"));
                 } else {
-                    results.add(buildResult(null, ch, MatchStatus.MISSING_IN_FR, "Term+ConceptId active in CH but not found in FR file"));
+                    results.add(buildResult(null, ch, MatchStatus.MISSING_IN_FR,
+                        "Term+ConceptId in CH but not found in FR file"));
                 }
             }
         }
 
         return results;
+    }
+
+    /** Creates a lookup key with case-preserving NFC-normalised and trimmed values. */
+    private static ConceptTermKey key(String conceptId, String term) {
+        return new ConceptTermKey(normalize(conceptId), normalize(term));
+    }
+
+    /** Case-preserving normalisation: trims whitespace and applies Unicode NFC. */
+    private static String normalize(String s) {
+        if (s == null) {
+            return "";
+        }
+        return Normalizer.normalize(s.trim(), Normalizer.Form.NFC);
+    }
+
+    private static boolean isActive(String activeFlag) {
+        return "1".equals(normalize(activeFlag));
+    }
+
+    private static boolean isFrench(String languageCode) {
+        return "fr".equals(normalize(languageCode));
     }
 
     private MatchResult buildResult(

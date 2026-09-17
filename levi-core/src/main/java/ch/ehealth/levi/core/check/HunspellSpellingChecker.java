@@ -281,13 +281,28 @@ public class HunspellSpellingChecker implements SpellingChecker {
         if (term == null || term.isBlank()) {
             return result;
         }
-        String normalized = FrTokenizer.normalize(term);
+        String normalized;
+        if ("it".equals(language)) {
+            normalized = ItTokenizer.normalize(term);
+        } else if ("de".equals(language)) {
+            normalized = DeTokenizer.normalize(term);
+        } else {
+            normalized = FrTokenizer.normalize(term);
+        }
 
         if ("fr".equals(language) && DU_A_PATTERN.matcher(normalized).find()) {
             result.add(new SpellingIssue("du \u00e0", "d\u00fb \u00e0", List.of("d\u00fb \u00e0"), true));
         }
 
-        for (String token : FrTokenizer.tokens(normalized)) {
+        List<String> tokens;
+        if ("it".equals(language)) {
+            tokens = ItTokenizer.tokens(normalized);
+        } else if ("de".equals(language)) {
+            tokens = DeTokenizer.tokens(normalized);
+        } else {
+            tokens = FrTokenizer.tokens(normalized);
+        }
+        for (String token : tokens) {
             if (token == null || token.isBlank() || token.length() < 2) {
                 continue;
             }
